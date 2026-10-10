@@ -70,7 +70,7 @@ Companion product docs: [vocabulary](../feature/vocabulary.md), [users](../featu
 | [003 Bootstrap](../adr/003-3-config-load-and-bootstrap-sequence.md) | sequences, components (`cli`, `config`), config |
 | [004 Local state](../adr/004-2-local-state-format-and-process-lock.md) | data, components (`state`) |
 | [005 Connector](../adr/005-2-connector-interface-and-github-client.md) | components (`connectors`) |
-| [006 ACP](../adr/006-1-acp-agent-runtime.md) | components (`acp`), sequences |
+| [006 ACP](../adr/006-2-acp-agent-runtime.md) | components (`acp`), sequences |
 | [007 Orchestration cycle](../adr/007-2-orchestration-cycle-and-claim-session-state-machine.md) | sequences, components (`orchestration`) |
 | [008 Worktrees](../adr/008-1-git-worktrees.md) | components (`worktree`), data |
 | [009 Intake](../adr/009-2-intake-poll-and-delta.md) | components (`intake`), sequences, data |

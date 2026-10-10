@@ -10,6 +10,7 @@ from orkie.orchestration.decide import (
     cap_room,
     claim_still_applies,
     clear_spawn_failures,
+    pick_agent_for_issue,
     plan_exits,
     plan_fulfillment,
     plan_new_claims,
@@ -90,14 +91,51 @@ def test_plan_fulfillment_ascending() -> None:
     assert [w.issue.number for w in plan] == [1, 2]
 
 
-def test_plan_new_claims_stops_when_caps_full() -> None:
+def test_plan_new_claims_lists_all_eligible_without_cap_projection() -> None:
     issues = [
         Issue(1, "a", "", "u", "open", ["orkie"]),
         Issue(2, "b", "", "u", "open", ["orkie"]),
     ]
     plan = plan_new_claims(issues, [], [_agent()], [], [], global_max=1)
-    assert len(plan) == 1
-    assert plan[0].issue.number == 1
+    assert [w.issue.number for w in plan] == [1, 2]
+
+
+def test_plan_new_claims_skips_issue_when_matching_agents_at_cap() -> None:
+    """Earlier issue with no agent room must not abort later issues (ADR 007)."""
+    issues = [
+        Issue(1, "a", "", "u", "open", ["alpha"]),
+        Issue(2, "b", "", "u", "open", ["beta"]),
+    ]
+    agent_a = AgentConfig(
+        id="a",
+        name="A",
+        role="worker",
+        command=["x"],
+        max_concurrent_sessions=1,
+        prompt_template="x",
+        triggers=[Trigger(type="labels", labels=["alpha"])],
+    )
+    agent_b = AgentConfig(
+        id="b",
+        name="B",
+        role="worker",
+        command=["x"],
+        max_concurrent_sessions=1,
+        prompt_template="x",
+        triggers=[Trigger(type="labels", labels=["beta"])],
+    )
+    working = [SessionRecord("s", "a", 99, None, True, "/w", "t")]
+    plan = plan_new_claims(issues, [], [agent_a, agent_b], working, [], global_max=2)
+    assert [w.issue.number for w in plan] == [1, 2]
+    chosen = pick_agent_for_issue(
+        issues[0], [agent_a, agent_b], working, global_max=2
+    )
+    assert chosen is None
+    chosen_b = pick_agent_for_issue(
+        issues[1], [agent_a, agent_b], working, global_max=2
+    )
+    assert chosen_b is not None
+    assert chosen_b.id == "b"
 
 
 def test_plan_exits_drop_claim_only_when_running() -> None:

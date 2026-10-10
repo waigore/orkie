@@ -7,10 +7,12 @@ import pytest
 from orkie.acp.framing import (
     AcpError,
     PermissionOption,
+    build_authenticate,
     build_initialize,
     choose_permission_option,
     decode_line,
     encode_message,
+    first_auth_method_id,
 )
 
 
@@ -21,6 +23,20 @@ def test_encode_decode_round_trip() -> None:
     assert b"\n" not in line[:-1]
     decoded = decode_line(line.rstrip(b"\n"))
     assert decoded["method"] == "initialize"
+
+
+def test_build_authenticate() -> None:
+    payload = build_authenticate(2, method_id="cursor_login")
+    assert payload["method"] == "authenticate"
+    assert payload["params"]["methodId"] == "cursor_login"
+
+
+def test_first_auth_method_id_shapes() -> None:
+    assert first_auth_method_id([]) is None
+    assert first_auth_method_id(["cursor_login"]) == "cursor_login"
+    assert first_auth_method_id([{"id": "cursor_login"}]) == "cursor_login"
+    assert first_auth_method_id([{"methodId": "cursor_login"}]) == "cursor_login"
+    assert first_auth_method_id([{}]) is None
 
 
 @pytest.mark.parametrize(

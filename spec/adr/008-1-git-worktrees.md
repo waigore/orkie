@@ -43,7 +43,7 @@ Removal reads the owning git directory from the worktree itself. A later process
 
 ### Agent cwd
 
-ACP child `cwd` is the worktree path ([006-1](006-1-acp-agent-runtime.md)). Orkie does not share the primary project checkout as a writable agent workspace for sessions.
+ACP child `cwd` is the worktree path ([006-1](006-2-acp-agent-runtime.md)). Orkie does not share the primary project checkout as a writable agent workspace for sessions.
 
 ## Reasoning
 

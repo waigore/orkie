@@ -35,7 +35,7 @@ A failed PR fetch skips this step only. It does not change claims or issue sessi
 
 - New `session_id` minted by orchestration; bind `pr_number` only. No local issue claim.
 - Substitute every feature-01 token. Issue tokens are empty ([003-3](003-3-config-load-and-bootstrap-sequence.md)).
-- Dedicated worktree ([008-1](008-1-git-worktrees.md)); implicit permission grants ([006-1](006-1-acp-agent-runtime.md)).
+- Dedicated worktree ([008-1](008-1-git-worktrees.md)); implicit permission grants ([006-1](006-2-acp-agent-runtime.md)).
 - Does not consume issue session caps.
 
 ### Stop and respawn

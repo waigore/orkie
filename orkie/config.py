@@ -10,6 +10,12 @@ import yaml
 
 from orkie.connectors.types import Issue, PullRequest
 
+BUILTIN_COMMANDS: dict[str, list[str]] = {
+    "cursor": ["agent", "acp"],
+    "opencode": ["opencode", "acp"],
+    "grok": ["grok", "agent", "--always-approve", "stdio"],
+}
+
 DEFAULT_SCAFFOLD = """\
 version: 1
 connector:
@@ -23,9 +29,7 @@ agents:
   - id: worker
     name: Worker
     role: worker
-    command:
-      - opencode
-      - acp
+    command_ref: opencode
     max_concurrent_sessions: 1
     prompt: |
       You are working on a single GitHub issue, #__ISSUENO__.
@@ -181,6 +185,7 @@ def _parse_config(root: dict[str, Any], project_root: Path) -> Config:
         "max_concurrent_sessions",
         "dashboard_port",
         "prompt_root",
+        "commands",
         "agents",
         "babysitter",
     }
@@ -206,6 +211,7 @@ def _parse_config(root: dict[str, Any], project_root: Path) -> Config:
     prompt_base = _resolve_project_relative(
         prompt_root_raw, project_root, path="prompt_root"
     )
+    command_presets = _parse_command_presets(root.get("commands"))
     agents_raw = root.get("agents")
     if not isinstance(agents_raw, list) or len(agents_raw) == 0:
         raise ConfigError("agents: must be a non-empty list")
@@ -216,6 +222,7 @@ def _parse_config(root: dict[str, Any], project_root: Path) -> Config:
                 item,
                 project_root,
                 prompt_base,
+                command_presets,
                 path=f"agents[{index}]",
             )
         )
@@ -234,6 +241,7 @@ def _parse_config(root: dict[str, Any], project_root: Path) -> Config:
             _require_dict(babysitter_raw, path="babysitter"),
             project_root,
             prompt_base,
+            command_presets,
         )
     _check_unique_ids(agents, babysitter)
     return Config(
@@ -286,6 +294,7 @@ def _parse_agent(
     raw: object,
     project_root: Path,
     prompt_base: Path,
+    command_presets: dict[str, list[str]],
     *,
     path: str,
 ) -> AgentConfig:
@@ -297,6 +306,7 @@ def _parse_agent(
             "name",
             "role",
             "command",
+            "command_ref",
             "max_concurrent_sessions",
             "prompt",
             "prompt_file",
@@ -312,7 +322,7 @@ def _parse_agent(
     role = _require_str(obj, "role", path=f"{path}.role")
     if not role:
         raise ConfigError(f"{path}.role: must be a non-empty string")
-    command = _parse_command(obj.get("command"), path=f"{path}.command")
+    command = _resolve_agent_command(obj, command_presets, path=path)
     max_sessions = _optional_int(
         obj, "max_concurrent_sessions", default=1, path=f"{path}.max_concurrent_sessions"
     )
@@ -340,10 +350,20 @@ def _parse_babysitter(
     raw: dict[str, Any],
     project_root: Path,
     prompt_base: Path,
+    command_presets: dict[str, list[str]],
 ) -> BabysitterConfig:
     _reject_unknown(
         raw,
-        {"enabled", "id", "name", "role", "command", "prompt", "prompt_file"},
+        {
+            "enabled",
+            "id",
+            "name",
+            "role",
+            "command",
+            "command_ref",
+            "prompt",
+            "prompt_file",
+        },
         path="babysitter",
     )
     enabled = raw.get("enabled", False)
@@ -366,7 +386,7 @@ def _parse_babysitter(
     role = _require_str(raw, "role", path="babysitter.role")
     if not role:
         raise ConfigError("babysitter.role: must be a non-empty string")
-    command = _parse_command(raw.get("command"), path="babysitter.command")
+    command = _resolve_agent_command(raw, command_presets, path="babysitter")
     prompt_template = _resolve_prompt(raw, project_root, prompt_base, path="babysitter")
     return BabysitterConfig(
         enabled=True,
@@ -456,6 +476,43 @@ def _parse_command(raw: object, *, path: str) -> list[str]:
             raise ConfigError(f"{path}[{i}]: must be a non-empty string")
         command.append(item)
     return command
+
+
+def _parse_command_presets(raw: object) -> dict[str, list[str]]:
+    presets = {name: list(argv) for name, argv in BUILTIN_COMMANDS.items()}
+    if raw is None:
+        return presets
+    obj = _require_dict(raw, path="commands")
+    for name, value in obj.items():
+        if not isinstance(name, str) or not name:
+            raise ConfigError("commands: keys must be non-empty strings")
+        _validate_id(name, path=f"commands.{name}")
+        if name in BUILTIN_COMMANDS:
+            raise ConfigError(
+                f"commands.{name}: name conflicts with a built-in command preset"
+            )
+        presets[name] = _parse_command(value, path=f"commands.{name}")
+    return presets
+
+
+def _resolve_agent_command(
+    obj: dict[str, Any],
+    command_presets: dict[str, list[str]],
+    *,
+    path: str,
+) -> list[str]:
+    has_command = "command" in obj
+    has_ref = "command_ref" in obj
+    if has_command == has_ref:
+        raise ConfigError(f"{path}: exactly one of command or command_ref is required")
+    if has_command:
+        return _parse_command(obj.get("command"), path=f"{path}.command")
+    ref = obj["command_ref"]
+    if not isinstance(ref, str) or not ref:
+        raise ConfigError(f"{path}.command_ref: must be a non-empty string")
+    if ref not in command_presets:
+        raise ConfigError(f"{path}.command_ref: unknown command preset {ref!r}")
+    return list(command_presets[ref])
 
 
 def _validate_id(value: str, *, path: str) -> None:

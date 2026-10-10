@@ -2,9 +2,9 @@
 
 ## Status
 
-Accepted
+Superseded by [006-2](../006-2-acp-agent-runtime.md).
 
-Supersedes [006](superseded/006-acp-agent-runtime.md).
+Supersedes [006](006-acp-agent-runtime.md).
 
 ## Context
 

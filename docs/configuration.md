@@ -26,7 +26,7 @@ agents:
   - id: worker
     name: Worker
     role: worker
-    command: [opencode, acp]
+    command_ref: opencode
     max_concurrent_sessions: 1
     prompt: |
       You are working on issue #__ISSUENO__: __ISSUE_TITLE__
@@ -52,6 +52,7 @@ babysitter:
 | `max_concurrent_sessions` | no | `1` | Global ceiling on working **issue** sessions |
 | `dashboard_port` | no | `8765` | Overridable with CLI `--port` |
 | `prompt_root` | no | `.` | Base directory for `prompt_file` paths; relative to the project root (no `..` escape) |
+| `commands` | no | — | Custom named argv presets (see below) |
 | `agents` | yes | — | At least one agent definition |
 | `babysitter` | no | `{enabled: false}` | Optional PR babysitter |
 
@@ -65,6 +66,39 @@ Precedence: `connector.repo` → GitHub `origin` → sole GitHub remote → fail
 |----------|----------|
 | `GITHUB_TOKEN` | Yes for the GitHub connector |
 
+## Command presets
+
+Each agent (and the enabled babysitter) sets exactly one of:
+
+| Field | Shape | Meaning |
+|-------|--------|---------|
+| `command` | argv list | Inline spawn command; first element is the executable |
+| `command_ref` | string | Name of a built-in or project preset |
+
+Built-in names (always available; project `commands` may not reuse them):
+
+| Name | Argv |
+|------|------|
+| `opencode` | `[opencode, acp]` |
+| `grok` | `[grok, agent, --always-approve, stdio]` |
+| `cursor` | `[agent, acp]` |
+
+Optional project presets:
+
+```yaml
+commands:
+  my_fork: [opencode, acp, --foo]
+
+agents:
+  - id: worker
+    command_ref: my_fork
+    # …
+```
+
+Unused custom names are allowed. Unknown `command_ref` fails bootstrap.
+
+For Cursor, pre-authenticate the CLI (`agent login` or `CURSOR_API_KEY`) before Orkie spawns; Orkie calls ACP `authenticate` when the agent advertises auth methods.
+
 ## Agents
 
 Each `agents[]` entry is a **config identity** (not a live session). Orkie assigns at most one issue per session.
@@ -74,7 +108,7 @@ Each `agents[]` entry is a **config identity** (not a live session). Orkie assig
 | `id` | yes | Unique vs other agents and enabled babysitter; no whitespace; ≤ 64 chars |
 | `name` | yes | Display name |
 | `role` | yes | Project metadata only; not an Orkie enum |
-| `command` | yes | Non-empty argv; first element is the executable |
+| `command` **or** `command_ref` | exactly one | Inline argv, or named preset (see above) |
 | `max_concurrent_sessions` | no | Default `1`; still limited by the global cap |
 | `prompt` **or** `prompt_file` | exactly one | Inline template, or path relative to `prompt_root` (no `..` escape; must stay under the project root) |
 | `triggers` | yes | At least one trigger |
@@ -90,12 +124,13 @@ An agent matches an intake issue when **any** trigger matches (re-evaluated each
 
 ### First-class agent commands
 
-Any ACP-compatible command works; these are documented defaults:
+Any ACP-compatible command works; these are documented defaults (also available as built-in `command_ref` values):
 
-| Agent | `command` |
-|-------|-----------|
-| OpenCode | `[opencode, acp]` |
-| Grok Build | `[grok, agent, --always-approve, stdio]` |
+| Agent | `command_ref` | `command` |
+|-------|---------------|-----------|
+| OpenCode | `opencode` | `[opencode, acp]` |
+| Grok Build | `grok` | `[grok, agent, --always-approve, stdio]` |
+| Cursor | `cursor` | `[agent, acp]` |
 
 See [feature 04](../spec/feature/04-acp-agent-runtime.md).
 
@@ -129,7 +164,7 @@ Effective room for an agent is the minimum of remaining per-agent and remaining 
 
 ## PR babysitter
 
-When `babysitter.enabled` is `true`, supply `id`, `name`, `role`, `command`, and exactly one of `prompt` / `prompt_file`. Orkie runs at most one babysitter session, bound to one selectable blocked PR. It does not merge PRs. When `enabled` is `false`, other babysitter fields are ignored.
+When `babysitter.enabled` is `true`, supply `id`, `name`, `role`, exactly one of `command` / `command_ref`, and exactly one of `prompt` / `prompt_file`. Orkie runs at most one babysitter session, bound to one selectable blocked PR. It does not merge PRs. When `enabled` is `false`, other babysitter fields are ignored.
 
 Details: [feature 07](../spec/feature/07-pr-babysitter.md).
 

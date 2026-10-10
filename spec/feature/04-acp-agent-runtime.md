@@ -2,7 +2,7 @@
 
 ## Description
 
-Orkie talks to coding agents through the Agent Client Protocol (ACP), protocol version 2. Agents are spawned, prompted, monitored, interrupted, and killed via ACP rather than through proprietary one-off integrations. OpenCode and Grok Build are first-class targets. Any ACP-compatible agent should work in principle.
+Orkie talks to coding agents through the Agent Client Protocol (ACP), protocol version 2. Agents are spawned, prompted, monitored, interrupted, and killed via ACP rather than through proprietary one-off integrations. OpenCode, Grok Build, and Cursor are first-class targets. Any ACP-compatible agent should work in principle.
 
 Orkie runs autonomously. While a session is running, every ACP permission request is granted by Orkie. The operator is not asked. Each grant is written to that agent's log so the dashboard can show it (see [02-local-state.md](02-local-state.md#agent-log-format)). Behavioral limits are left to project prompts and settings.
 
@@ -14,7 +14,7 @@ Actors are defined in [users.md](users.md).
 
 - **Orchestration**: Spawns an agent with a substituted prompt in a dedicated worktree and drives the session over ACP.
 - **Dashboard user**: Views session status, logs, and permission grants, and kills or interrupts a session using ACP-supported controls.
-- **Project maintainer**: Chooses an ACP-compatible agent command in config. OpenCode or Grok Build are the documented first-class commands. Others are allowed.
+- **Project maintainer**: Chooses an ACP-compatible agent command in config (inline argv or a named preset from [01-project-bootstrap-and-config.md](01-project-bootstrap-and-config.md)). OpenCode, Grok Build, and Cursor are the documented first-class commands. Others are allowed.
 
 ## Permission grants
 
@@ -55,16 +55,19 @@ Orkie waits 20 seconds for every session together. An idle status during that wa
 **When** Orkie starts that work  
 **Then** it uses the session id orchestration minted for that spawn, establishes an ACP session with the configured command in the session worktree, and delivers the substituted prompt. Prompt acceptance is the protocol success that carries a message id. Orkie does not wait for the agent to go idle before treating the spawn as started
 
-### Prefer OpenCode and Grok Build
+### Prefer OpenCode, Grok Build, and Cursor
 
-**Given** project config names OpenCode or Grok Build as the agent command  
+**Given** project config names OpenCode, Grok Build, or Cursor as the agent command (inline argv or the matching built-in `command_ref`)  
 **When** Orkie spawns the agent  
 **Then** the ACP runtime uses the documented command for that agent and treats it as a supported first-class target
 
 Documented commands:
 
-- OpenCode: `opencode acp`
-- Grok Build: `grok agent --always-approve stdio`
+- OpenCode: `opencode acp` (built-in preset `opencode`)
+- Grok Build: `grok agent --always-approve stdio` (built-in preset `grok`)
+- Cursor: `agent acp` (built-in preset `cursor`)
+
+Cursor may advertise an ACP auth method (for example `cursor_login`). The operator pre-authenticates outside Orkie (`agent login`, `CURSOR_API_KEY`, or equivalent). Orkie then calls `authenticate` during spawn as in [Fail clearly when the agent cannot start](#fail-clearly-when-the-agent-cannot-start).
 
 ### Support any ACP-compatible agent in principle
 
@@ -120,17 +123,24 @@ Documented commands:
 **When** the runtime reports that exit  
 **Then** the session is not working. If it held an issue claim and shutdown has not started, orchestration drops that claim. Whether and when the agent exits is an agent decision (guided by the project prompt), not an orchestrator decision. An exit after shutdown has started (`shutdown_event` or the interactive shutdown prompt) does not drop the claim
 
+### Authenticate when the agent advertises auth methods
+
+**Given** ACP `initialize` returns a non-empty `authMethods` list  
+**When** Orkie continues the spawn handshake  
+**Then** it calls `authenticate` with the first advertised method's id (using pre-existing operator credentials in the environment or CLI login state). An empty `authMethods` list skips `authenticate`. A failed `authenticate` call fails the spawn
+
 ### Fail clearly when the agent cannot start
 
-**Given** the configured ACP command is missing, fails to start, rejects ACP protocol version 2, requires an auth method, or returns an error for the initial prompt  
+**Given** the configured ACP command is missing, fails to start, rejects ACP protocol version 2, returns an error from `authenticate`, or returns an error for the initial prompt  
 **When** Orkie attempts to spawn the session  
-**Then** the failure is stored as a spawn-failure record with the config id, the issue or PR number, attempt count, and a redacted error. No session is working. Claim handling (keep through three attempts, then drop the local claim) is owned by orchestration (see [05-agent-orchestration.md](05-agent-orchestration.md)). The dashboard shows the failure
+**Then** the failure is stored as a spawn-failure record with the config id, the issue or PR number, attempt count, and a redacted error. No session is working. Claim handling (keep through three attempts, then drop the local claim) is owned by orchestration (see [05-agent-orchestration.md](05-agent-orchestration.md)). The dashboard shows the failure. Advertising auth methods alone is not a spawn failure when `authenticate` succeeds
 
 ## Acceptance criteria
 
 - [ ] Agent spawn, prompt delivery, status, and kill go through ACP protocol version 2.
-- [ ] OpenCode (`opencode acp`) and Grok Build (`grok agent --always-approve stdio`) are documented first-class commands.
-- [ ] `command` in config selects the ACP agent. Orkie does not hard-code only those two implementations.
+- [ ] OpenCode (`opencode acp`), Grok Build (`grok agent --always-approve stdio`), and Cursor (`agent acp`) are documented first-class commands, including the matching built-in presets in [01-project-bootstrap-and-config.md](01-project-bootstrap-and-config.md).
+- [ ] Resolved argv from config (`command` or `command_ref`) selects the ACP agent. Orkie does not hard-code only those three implementations.
+- [ ] When `initialize` returns a non-empty `authMethods` list, Orkie calls `authenticate` with the first method id before `session/new`. Empty `authMethods` skips authenticate. Authenticate failure fails the spawn.
 - [ ] Each spawn uses one session id minted for that attempt. The session is tied to one config id and one issue or one PR. That id is the worktree name and the prompt's session token. Sessions are not resumed.
 - [ ] The delivered prompt is the config template after variable substitution. Acceptance of that prompt is the ACP success that carries a message id. Spawn does not wait for idle. A protocol error on the initial prompt fails the spawn.
 - [ ] While a session is running, Orkie grants every permission request by the order in [Permission grants](#permission-grants), including a reject-only option list, and writes each grant to the agent log. The operator is not asked. `cancelled` is reserved for interrupt and for graceful-shutdown cancel, and those answers are logged as `permission cancelled`.

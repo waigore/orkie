@@ -15,7 +15,13 @@ from orkie.connectors.github import (
     parse_pull_request,
     pulls_list_url,
 )
-from orkie.connectors.types import AuthError, OwnerRepo, Privilege, RateLimitError
+from orkie.connectors.types import (
+    AuthError,
+    ConnectorError,
+    OwnerRepo,
+    Privilege,
+    RateLimitError,
+)
 
 
 def test_url_builders() -> None:
@@ -81,7 +87,13 @@ def test_list_open_issues_excludes_prs(monkeypatch: pytest.MonkeyPatch) -> None:
         def headers(self) -> dict[str, str]:
             return {}
 
-    monkeypatch.setattr("orkie.connectors.github.urllib.request.urlopen", lambda req: Resp())
+    def fake_urlopen(req: object, timeout: float | None = None) -> Resp:
+        assert timeout == 30
+        return Resp()
+
+    monkeypatch.setattr(
+        "orkie.connectors.github.urllib.request.urlopen", fake_urlopen
+    )
     client = GitHubConnector("tok", OwnerRepo("o", "r"))
     issues = client.list_open_issues()
     assert [i.number for i in issues] == [1]
@@ -95,7 +107,7 @@ def test_probe_empty_token_no_http() -> None:
 
 
 def test_probe_auth_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    def raise_auth(req: object) -> object:
+    def raise_auth(req: object, timeout: float | None = None) -> object:
         raise HTTPError(req.full_url, 401, "no", hdrs=None, fp=io.BytesIO(b"{}"))  # type: ignore[attr-defined]
 
     monkeypatch.setattr("orkie.connectors.github.urllib.request.urlopen", raise_auth)
@@ -105,7 +117,7 @@ def test_probe_auth_error(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_rate_limit_maps(monkeypatch: pytest.MonkeyPatch) -> None:
-    def raise_rl(req: object) -> object:
+    def raise_rl(req: object, timeout: float | None = None) -> object:
         raise HTTPError(
             "https://api.github.com",
             403,
@@ -121,7 +133,7 @@ def test_rate_limit_maps(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_auth_error_on_list(monkeypatch: pytest.MonkeyPatch) -> None:
-    def raise_auth(req: object) -> object:
+    def raise_auth(req: object, timeout: float | None = None) -> object:
         raise HTTPError(
             "https://api.github.com",
             401,
@@ -133,4 +145,19 @@ def test_auth_error_on_list(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("orkie.connectors.github.urllib.request.urlopen", raise_auth)
     client = GitHubConnector("tok", OwnerRepo("o", "r"))
     with pytest.raises(AuthError):
+        client.list_open_issues()
+
+
+def test_urlopen_timeout_maps_to_connector_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def raise_timeout(req: object, timeout: float | None = None) -> object:
+        assert timeout == 30
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(
+        "orkie.connectors.github.urllib.request.urlopen", raise_timeout
+    )
+    client = GitHubConnector("tok", OwnerRepo("o", "r"))
+    with pytest.raises(ConnectorError, match="timed out"):
         client.list_open_issues()

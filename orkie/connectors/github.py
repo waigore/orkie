@@ -24,6 +24,7 @@ from orkie.connectors.types import (
 API_BASE = "https://api.github.com"
 ACCEPT_HEADER = "application/vnd.github+json"
 API_VERSION = "2022-11-28"
+REQUEST_TIMEOUT_SECONDS = 30
 
 
 def issues_list_url(owner: str, repo: str, *, per_page: int = 100, page: int = 1) -> str:
@@ -186,12 +187,16 @@ class GitHubConnector:
             method="GET",
         )
         try:
-            with urllib.request.urlopen(request) as response:
+            with urllib.request.urlopen(
+                request, timeout=REQUEST_TIMEOUT_SECONDS
+            ) as response:
                 raw = response.read()
                 link = response.headers.get("Link")
         except urllib.error.HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")
             raise _map_http_error(exc.code, body) from exc
+        except TimeoutError as exc:
+            raise ConnectorError(str(exc) or "GitHub request timed out") from exc
         except urllib.error.URLError as exc:
             raise ConnectorError(str(exc)) from exc
         try:

@@ -34,7 +34,7 @@ babysitter:
   id: sitter
   name: Sitter
   role: babysitter
-  command: [opencode, acp]
+  command_ref: grok
   prompt: "PR __PRNO__"
 """,
         encoding="utf-8",
@@ -42,4 +42,10 @@ babysitter:
     config = load_config(project)
     assert config.babysitter.enabled
     assert config.babysitter.id == "sitter"
+    assert config.babysitter.command == [
+        "grok",
+        "agent",
+        "--always-approve",
+        "stdio",
+    ]
     assert config.agents[0].triggers[0].type == "labels"

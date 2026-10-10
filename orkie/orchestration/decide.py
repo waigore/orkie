@@ -87,6 +87,22 @@ def blocked_by_spawn_failures(
     return False
 
 
+def pick_agent_for_issue(
+    issue: Issue,
+    agents: list[AgentConfig],
+    working_issue_sessions: list[SessionRecord],
+    *,
+    global_max: int,
+) -> AgentConfig | None:
+    """Earliest agents[] entry that matches and still has live cap room."""
+    for agent in agents:
+        if not agent_matches(agent, issue):
+            continue
+        if cap_room(agent, working_issue_sessions, global_max=global_max) > 0:
+            return agent
+    return None
+
+
 def plan_fulfillment(
     claims: list[ClaimRecord],
     intake: list[Issue],
@@ -96,14 +112,13 @@ def plan_fulfillment(
     *,
     global_max: int,
 ) -> list[SpawnWork]:
+    _ = global_max  # procedure checks live caps while walking
     working_issues = {
         session.issue_number
         for session in working_issue_sessions
         if session.issue_number is not None
     }
     planned: list[SpawnWork] = []
-    # Track projected working sessions as we walk candidates.
-    projected = list(working_issue_sessions)
     for claim in sorted(claims, key=lambda item: item.issue_number):
         if claim.issue_number in working_issues:
             continue
@@ -114,23 +129,10 @@ def plan_fulfillment(
         agent = _agent_by_id(agents, claim.agent_id)
         if agent is None:
             continue
-        if cap_room(agent, projected, global_max=global_max) <= 0:
-            continue
         issue = _issue_by_number(intake, claim.issue_number)
         if issue is None:
             continue
         planned.append(SpawnWork(issue=issue, agent=agent, claim=claim))
-        projected.append(
-            SessionRecord(
-                session_id="",
-                agent_id=agent.id,
-                issue_number=claim.issue_number,
-                pr_number=None,
-                working=True,
-                worktree_path="",
-                started_at="",
-            )
-        )
     return planned
 
 
@@ -143,6 +145,7 @@ def plan_new_claims(
     *,
     global_max: int,
 ) -> list[SpawnWork]:
+    _ = global_max  # procedure picks agents against live caps while walking
     claimed = {claim.issue_number for claim in claims}
     working_issues = {
         session.issue_number
@@ -150,7 +153,6 @@ def plan_new_claims(
         if session.issue_number is not None
     }
     planned: list[SpawnWork] = []
-    projected = list(working_issue_sessions)
     for issue in sorted(intake, key=lambda item: item.number):
         if issue.number in claimed or issue.number in working_issues:
             continue
@@ -159,25 +161,8 @@ def plan_new_claims(
         matching = [agent for agent in agents if agent_matches(agent, issue)]
         if not matching:
             continue
-        chosen: AgentConfig | None = None
-        for agent in matching:
-            if cap_room(agent, projected, global_max=global_max) > 0:
-                chosen = agent
-                break
-        if chosen is None:
-            break
-        planned.append(SpawnWork(issue=issue, agent=chosen, claim=None))
-        projected.append(
-            SessionRecord(
-                session_id="",
-                agent_id=chosen.id,
-                issue_number=issue.number,
-                pr_number=None,
-                working=True,
-                worktree_path="",
-                started_at="",
-            )
-        )
+        # Placeholder agent; procedure re-picks with live cap_room.
+        planned.append(SpawnWork(issue=issue, agent=matching[0], claim=None))
     return planned
 
 

@@ -2,7 +2,7 @@
 
 ## Description
 
-Orkie starts against a target Git project, discovers that project's `.orkie/` configuration directory, and loads [`.orkie/config.yaml`](#config-schema). That file defines the GitHub connector, the labels that mark intake issues, session caps, agents (config identity, command, prompt, triggers), the optional PR babysitter, and the dashboard port. If `.orkie/` or `config.yaml` is missing, bootstrap offers to create a basic default config the operator can accept or reject **only when the process is interactive**. In non-interactive mode (for example systemd), missing config is a hard failure with no prompt. The default config defines one agent that handles one open issue at a time, among issues that carry the default issue label. Bootstrap validates that the config is usable and prepares the runtime for continuous orchestration. Secrets and tokens are never stored in `.orkie/`; the GitHub token comes from the `GITHUB_TOKEN` environment variable (see [03-connector-interface-and-github.md](03-connector-interface-and-github.md)).
+Orkie starts against a target Git project, discovers that project's `.orkie/` configuration directory, and loads [`.orkie/config.yaml`](#config-schema). That file defines the GitHub connector, the labels that mark intake issues, session caps, agents (config identity, ACP command or named command preset, prompt, triggers), optional reusable command presets, the optional PR babysitter, and the dashboard port. If `.orkie/` or `config.yaml` is missing, bootstrap offers to create a basic default config the operator can accept or reject **only when the process is interactive**. In non-interactive mode (for example systemd), missing config is a hard failure with no prompt. The default config defines one agent that handles one open issue at a time, among issues that carry the default issue label. Bootstrap validates that the config is usable and prepares the runtime for continuous orchestration. Secrets and tokens are never stored in `.orkie/`; the GitHub token comes from the `GITHUB_TOKEN` environment variable (see [03-connector-interface-and-github.md](03-connector-interface-and-github.md)).
 
 Config is loaded at bootstrap and applies for that process. Editing the file during a run has no effect until the next start.
 
@@ -62,9 +62,27 @@ Actors are defined in [users.md](users.md).
 
 ### Config owns agent identity and behavior boundaries
 
-**Given** project YAML that defines one or more agents with config identity, command, and prompt  
+**Given** project YAML that defines one or more agents with config identity, command or command preset, and prompt  
 **When** bootstrap completes successfully  
 **Then** those definitions are available to orchestration. What agents may or may not do is expressed only through project prompt and settings, not through an Orkie role catalog
+
+### Resolve a built-in or project command preset
+
+**Given** an agent or enabled babysitter sets `command_ref` to a built-in preset name (`cursor`, `opencode`, or `grok`) or to a name defined under top-level `commands`  
+**When** bootstrap loads config  
+**Then** Orkie resolves that name to an argv list and uses that list as the agent's ACP command for the process lifetime
+
+### Reject an unknown or conflicting command preset
+
+**Given** `command_ref` names a preset that is not built-in and not in project `commands`, or project `commands` reuses a built-in preset name  
+**When** Orkie attempts bootstrap  
+**Then** bootstrap fails with a validation error naming the field and the rule violated
+
+### Exactly one of `command` or `command_ref`
+
+**Given** an agent or enabled babysitter sets both `command` and `command_ref`, or sets neither  
+**When** Orkie attempts bootstrap  
+**Then** bootstrap fails with a validation error. Inline argv and named presets are alternatives, not combined
 
 ### Credentials stay outside the repo config tree
 
@@ -93,10 +111,34 @@ The only config file is `.orkie/config.yaml`. `version` must be `1`. Unknown fie
 | `max_concurrent_sessions` | no | `1` | Global ceiling on working issue sessions across all agents. Integer `>= 1`. |
 | `dashboard_port` | no | `8765` | Loopback TCP port for the local dashboard. Integer `1`–`65535`. Overridable on the CLI (see [08-cli-and-dashboard.md](08-cli-and-dashboard.md)). |
 | `prompt_root` | no | `.` | Directory relative to the project root used as the base for every `prompt_file`. Must be a non-empty relative path with no `..` segments; after resolve it must stay under the project root. |
+| `commands` | no | | Map of custom command preset names to argv lists. See [Command presets](#command-presets). |
 | `agents` | yes | | One or more agent definitions. |
 | `babysitter` | no | `{enabled: false}` | Optional PR babysitter. |
 
 `issue_labels` entries are GitHub label names: non-empty, unique, and at most 50 characters. Intake triggers are project-defined. Orkie does not reserve a label for its own claims.
+
+### Command presets
+
+Agents and the babysitter select an ACP spawn argv with exactly one of:
+
+| Field | Shape | Meaning |
+|-------|--------|---------|
+| `command` | non-empty list of strings | Inline argv. The first item is the executable. |
+| `command_ref` | non-empty string | Name of a built-in or project command preset. Resolved to argv at load. |
+
+Both set, or neither set, fails validation.
+
+**Built-in presets** (always available; names are reserved):
+
+| Name | Argv |
+|------|------|
+| `cursor` | `agent`, `acp` |
+| `opencode` | `opencode`, `acp` |
+| `grok` | `grok`, `agent`, `--always-approve`, `stdio` |
+
+Optional top-level `commands` adds project presets. Each key is a non-empty name with no whitespace, at most 64 characters. Each value is a non-empty argv list (same rules as inline `command`). A key that equals a built-in name fails validation. Unused custom names are allowed. `command_ref` that is neither built-in nor in `commands` fails validation.
+
+Documented first-class agent meanings for the built-in argv lists: [04-acp-agent-runtime.md](04-acp-agent-runtime.md).
 
 `connector`:
 
@@ -114,7 +156,8 @@ Each entry in `agents` is one config identity. It is not a live session.
 | `id` | yes | | Config identity. Unique among agents and the babysitter when the babysitter is enabled. Non-empty, no whitespace, at most 64 characters. |
 | `name` | yes | | Display name. |
 | `role` | yes | | Project-defined role string for display and metadata. Not an enum. Orchestration does not branch on `role`. |
-| `command` | yes | | Non-empty argument list used to spawn the ACP agent. The first item is the executable. |
+| `command` | exactly one of `command` or `command_ref` | | Inline ACP argv. See [Command presets](#command-presets). |
+| `command_ref` | exactly one of `command` or `command_ref` | | Named preset resolved at load. See [Command presets](#command-presets). |
 | `max_concurrent_sessions` | no | `1` | Ceiling for live sessions of this config identity. Integer `>= 1`. The global ceiling still applies. |
 | `prompt` | exactly one of `prompt` or `prompt_file` | | Inline prompt template. Both set, or neither set, fails validation. |
 | `prompt_file` | exactly one of `prompt` or `prompt_file` | | Path relative to `prompt_root` for the prompt template. Must be a non-empty relative path with no `..` segments; after resolve it must stay under the project root. Both set, or neither set, fails validation. |
@@ -137,7 +180,7 @@ An agent matches an issue when any one of its trigger entries matches. Trigger m
 | `id` | when enabled | | Config identity. Same constraints as an agent `id`, and unique across agents. |
 | `name` | when enabled | | Display name. |
 | `role` | when enabled | | Project-defined role string for display and metadata. |
-| `command` | when enabled | | ACP argument list, same rule as an agent `command`. |
+| `command` / `command_ref` | when enabled | | Exactly one, same rules as an agent. |
 | `prompt` or `prompt_file` | when enabled | | Exactly one prompt template. Orkie assigns only one PR per session. The prompt should tell the agent to work only on that PR. |
 
 The babysitter has no issue triggers and no `max_concurrent_sessions`. Orkie runs at most one babysitter session at a time, and that session does not consume issue session caps.
@@ -183,9 +226,7 @@ agents:
   - id: worker
     name: Worker
     role: worker
-    command:
-      - opencode
-      - acp
+    command_ref: opencode
     max_concurrent_sessions: 1
     prompt: |
       You are working on a single GitHub issue, #__ISSUENO__.
@@ -201,7 +242,7 @@ babysitter:
   enabled: false
 ```
 
-The default issue label is `orkie`. The default agent command is OpenCode's ACP entry. Grok Build is selected by changing `command` as documented in [04-acp-agent-runtime.md](04-acp-agent-runtime.md).
+The default issue label is `orkie`. The default agent uses the built-in `opencode` command preset. Other first-class presets and inline argv are documented in [04-acp-agent-runtime.md](04-acp-agent-runtime.md) and [Command presets](#command-presets).
 
 ### Session caps
 
@@ -221,7 +262,7 @@ The default issue label is `orkie`. The default agent command is OpenCode's ACP 
 - [ ] The operator can reject the interactive offer. On reject, no config is created and the orchestration loop does not start.
 - [ ] On accept, Orkie writes the default scaffold in this feature.
 - [ ] Invalid or incomplete config fails bootstrap before the continuous loop starts. Errors name the problem. The default offer applies only when config is absent, not when it is present and broken.
-- [ ] Agent `role` is project-defined display/metadata. Exactly one of `prompt` or `prompt_file` is required. `prompt_file` paths resolve under `prompt_root` (default project root) and must stay inside the project root. When `babysitter.enabled` is false, other babysitter fields are ignored. The default scaffold is only a starting template.
+- [ ] Agent `role` is project-defined display/metadata. Exactly one of `prompt` or `prompt_file` is required. Exactly one of `command` or `command_ref` is required on each agent and on the enabled babysitter. `command_ref` resolves against built-in presets and optional project `commands`; unknown refs and project names that collide with built-ins fail validation. `prompt_file` paths resolve under `prompt_root` (default project root) and must stay inside the project root. When `babysitter.enabled` is false, other babysitter fields are ignored. The default scaffold is only a starting template.
 - [ ] Tokens and secrets are not read from `.orkie/`. `GITHUB_TOKEN` is required. Required connector privileges and interactive vs non-interactive handling are defined in [03-connector-interface-and-github.md](03-connector-interface-and-github.md#required-privileges).
 - [ ] `poll_interval_seconds` defaults to 60 and must be an integer greater than or equal to 15. `dashboard_port` defaults to 8765.
 - [ ] Optional `connector.repo` is `owner/name`. When it is omitted, repository resolution follows [03-connector-interface-and-github.md](03-connector-interface-and-github.md).

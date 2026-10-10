@@ -24,7 +24,7 @@ On `orkie [project] [--port N]`:
 2. **Locate `.orkie/config.yaml`**
    - Missing + interactive → prompt to create default scaffold; accept writes file and continues; reject exits without loop.
    - Missing + non-interactive → hard fail; no write.
-3. **Load and validate config** — `yaml.safe_load` then hand validation against feature-01 schema (unknown fields fail; defaults applied). Resolve optional `prompt_root` (default `.`) under the project root; load each `prompt_file` relative to that root. Reject absolute paths and any path that escapes the project root. Failure → hard fail (both modes).
+3. **Load and validate config** — `yaml.safe_load` then hand validation against feature-01 schema (unknown fields fail; defaults applied). Resolve optional `prompt_root` (default `.`) under the project root; load each `prompt_file` relative to that root. Reject absolute paths and any path that escapes the project root. Resolve each agent and enabled-babysitter `command_ref` against built-in presets and optional project `commands` (feature 01); store resolved argv on the loaded config. Failure → hard fail (both modes).
 4. **Resolve repository identity** — `connector.repo` or GitHub remote rules from feature 03. Failure → hard fail.
 5. **Resolve the start checkout** — `worktree.resolve_base` on the project root ([008-1](008-1-git-worktrees.md)). Remember the branch name, or `detached`, and the commit, for the process lifetime. Failure → hard fail.
 6. **Acquire process lock** — under state root for that `owner--repo` ([004-2](004-2-local-state-format-and-process-lock.md)). Live holder → refuse start. Stale pid → take lock. Corrupt lock contents, once the lock is held, are overwritten in place.

@@ -176,6 +176,7 @@ def run_bootstrap(project: Path | None, *, port: int | None) -> RuntimeContext:
             store.release_lock()
             raise SystemExit(1)
         token = os.environ.get("GITHUB_TOKEN", "")
+        store.set_github_token(token or None)
         connector = build_connector(config, token, owner_repo)
     dashboard_port = port if port is not None else config.dashboard_port
     shutdown_event = threading.Event()
@@ -298,7 +299,7 @@ def shutdown(ctx: RuntimeContext, *, mode: Literal["normal", "graceful"]) -> int
         if ctx.immediate_kill.is_set():
             for handle in list(ctx.sessions.values()):
                 try:
-                    ctx.acp_client.end_session(handle)
+                    ctx.acp_client.force_kill(handle)
                 except Exception:  # noqa: BLE001
                     pass
     orchestrator.end_all_sessions()

@@ -50,7 +50,7 @@ def test_list_pulls_fetches_detail_when_unknown(monkeypatch: pytest.MonkeyPatch)
         def headers(self) -> dict[str, str]:
             return {}
 
-    def urlopen(req: object) -> Resp:
+    def urlopen(req: object, timeout: float | None = None) -> Resp:
         url = req.full_url  # type: ignore[attr-defined]
         calls.append(url)
         if "/pulls/3" in url:

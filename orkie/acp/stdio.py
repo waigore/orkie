@@ -19,6 +19,7 @@ from orkie.acp.framing import (
     JsonRpcNotification,
     JsonRpcRequest,
     JsonRpcResponse,
+    build_authenticate,
     build_initialize,
     build_permission_cancelled,
     build_permission_selected,
@@ -30,6 +31,7 @@ from orkie.acp.framing import (
     classify_message,
     decode_line,
     encode_message,
+    first_auth_method_id,
     parse_permission_options,
 )
 
@@ -138,7 +140,14 @@ class StdioAcpClient:
                 raise AcpError("unsupported ACP protocol version")
             auth_methods = init_result.get("authMethods") or []
             if isinstance(auth_methods, list) and len(auth_methods) > 0:
-                raise AcpError("agent requires auth/login which Orkie does not support")
+                method_id = first_auth_method_id(auth_methods)
+                if method_id is None:
+                    raise AcpError("authMethods advertised but no usable method id")
+                self._request(
+                    handle,
+                    build_authenticate(self._next_id(handle), method_id=method_id),
+                    deadline=deadline,
+                )
             capabilities = init_result.get("capabilities") or {}
             session_caps = {}
             if isinstance(capabilities, dict):
@@ -218,6 +227,17 @@ class StdioAcpClient:
                 self._kill_process_group(handle)
         else:
             self._kill_process_group(handle)
+        handle.reader_thread.join(timeout=2.0)
+
+    def force_kill(self, handle: SessionHandle) -> None:
+        """SIGKILL the process group immediately (immediate-kill / second signal)."""
+        if handle._closed:
+            self._kill_process_group(handle)
+            return
+        handle._closed = True
+        handle._cancel_permissions = True
+        self._cancel_pending_permissions(handle)
+        self._kill_process_group(handle)
         handle.reader_thread.join(timeout=2.0)
 
     def is_alive(self, handle: SessionHandle) -> bool:

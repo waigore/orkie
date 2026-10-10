@@ -92,6 +92,30 @@ def build_initialize(request_id: int, *, version: str) -> dict[str, Any]:
     }
 
 
+def build_authenticate(request_id: int, *, method_id: str) -> dict[str, Any]:
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "method": "authenticate",
+        "params": {"methodId": method_id},
+    }
+
+
+def first_auth_method_id(auth_methods: object) -> str | None:
+    """Return the first advertised auth method id, or None if none usable."""
+    if not isinstance(auth_methods, list) or len(auth_methods) == 0:
+        return None
+    first = auth_methods[0]
+    if isinstance(first, str) and first:
+        return first
+    if isinstance(first, dict):
+        for key in ("id", "methodId", "method_id"):
+            value = first.get(key)
+            if isinstance(value, str) and value:
+                return value
+    return None
+
+
 def build_session_new(request_id: int, *, cwd: str) -> dict[str, Any]:
     return {
         "jsonrpc": "2.0",

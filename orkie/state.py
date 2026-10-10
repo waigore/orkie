@@ -89,6 +89,10 @@ class StateStore:
     def state_root(self) -> Path:
         return self._state_root
 
+    def set_github_token(self, github_token: str | None) -> None:
+        """Refresh the token used for log redaction (e.g. after privilege retry)."""
+        self._github_token = github_token
+
     def acquire_lock(self) -> None:
         self.ensure_layout()
         lock_path = self._state_root / "lock"

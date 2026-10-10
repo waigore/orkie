@@ -17,9 +17,11 @@ from orkie.intake import Intake
 from orkie.orchestration.decide import (
     ExitWork,
     SpawnWork,
+    cap_room,
     claim_still_applies,
     clear_spawn_failures,
     clear_unselectable_pr_failures,
+    pick_agent_for_issue,
     plan_exits,
     plan_fulfillment,
     plan_new_claims,
@@ -96,8 +98,10 @@ class Orchestrator:
             for work in fulfill:
                 if ctx.shutdown_event.is_set() or ctx.prompt_requested.is_set():
                     return
-                if self._cap_room_for(work.agent) <= 0:
+                if self._global_issue_room() <= 0:
                     break
+                if self._cap_room_for(work.agent) <= 0:
+                    continue
                 self._spawn_issue_work(work)
             working = self._working_issue_sessions()
             failures = ctx.store.load_spawn_failures()
@@ -113,10 +117,23 @@ class Orchestrator:
             for work in new_claims:
                 if ctx.shutdown_event.is_set() or ctx.prompt_requested.is_set():
                     return
-                if self._cap_room_for(work.agent) <= 0:
+                if self._global_issue_room() <= 0:
                     break
-                self._spawn_issue_work(work, write_claim=True)
+                agent = pick_agent_for_issue(
+                    work.issue,
+                    ctx.config.agents,
+                    self._working_issue_sessions(),
+                    global_max=ctx.config.max_concurrent_sessions,
+                )
+                if agent is None:
+                    continue
+                self._spawn_issue_work(
+                    SpawnWork(issue=work.issue, agent=agent, claim=None),
+                    write_claim=True,
+                )
         # Step 8: babysitter
+        if ctx.shutdown_event.is_set() or ctx.prompt_requested.is_set():
+            return
         self._run_babysitter()
 
     def interrupt_session(self, session_id: str) -> None:
@@ -284,6 +301,8 @@ class Orchestrator:
 
     def _run_babysitter(self) -> None:
         ctx = self._ctx
+        if ctx.shutdown_event.is_set() or ctx.prompt_requested.is_set():
+            return
         babysitter = ctx.config.babysitter
         if not babysitter.enabled:
             return
@@ -449,11 +468,13 @@ class Orchestrator:
         ]
 
     def _cap_room_for(self, agent: AgentConfig) -> int:
-        from orkie.orchestration.decide import cap_room
-
         return cap_room(
             agent,
             self._working_issue_sessions(),
             global_max=self._ctx.config.max_concurrent_sessions,
         )
+
+    def _global_issue_room(self) -> int:
+        working = self._working_issue_sessions()
+        return max(0, self._ctx.config.max_concurrent_sessions - len(working))
 

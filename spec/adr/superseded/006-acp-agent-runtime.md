@@ -1,6 +1,6 @@
 ## Status
 
-Superseded by [006-1](../006-1-acp-agent-runtime.md).
+Superseded by [006-1](006-1-acp-agent-runtime.md).
 
 ## Context
 

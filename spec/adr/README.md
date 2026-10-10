@@ -70,7 +70,7 @@ Anything under `spec/adr/*.md` (except history links) is current — link those 
 | [003](003-3-config-load-and-bootstrap-sequence.md) | Config load and bootstrap sequence | Accepted | 01, 03, 08 |
 | [004](004-2-local-state-format-and-process-lock.md) | Local state format and process lock | Accepted | 02, 08 |
 | [005](005-2-connector-interface-and-github-client.md) | Connector interface and GitHub client | Accepted | 03, 06, 07 |
-| [006](006-1-acp-agent-runtime.md) | ACP agent runtime | Accepted | 04, 05 |
+| [006](006-2-acp-agent-runtime.md) | ACP agent runtime | Accepted | 04, 05 |
 | [007](007-2-orchestration-cycle-and-claim-session-state-machine.md) | Orchestration cycle and claim/session state machine | Accepted | 05, 02, 06 |
 | [008](008-1-git-worktrees.md) | Git worktrees | Accepted | 05, 07 |
 | [009](009-2-intake-poll-and-delta.md) | Intake poll and delta | Accepted | 06, 02 |

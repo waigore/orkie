@@ -108,7 +108,7 @@ Load and validate `.orkie/config.yaml`, write the default scaffold on accept, su
 
 | In | Out |
 |----|-----|
-| YAML load (`yaml.safe_load`); schema validation; defaults; `prompt_root` resolve under project root; `prompt_file` resolution under `prompt_root` (jailed to project root); scaffold write (exact feature-01 text); token substitution | Repo remote resolution; privileges; state I/O |
+| YAML load (`yaml.safe_load`); schema validation; defaults; `prompt_root` resolve under project root; `prompt_file` resolution under `prompt_root` (jailed to project root); `command_ref` resolve against built-in presets + optional project `commands`; scaffold write (exact feature-01 text); token substitution | Repo remote resolution; privileges; state I/O |
 
 ### Interfaces
 
@@ -389,7 +389,7 @@ Built after the token is read; used for the read-only privilege probe, then ever
 ## `orkie.acp`
 
 **Features:** [04](../feature/04-acp-agent-runtime.md)  
-**ADRs:** [006](../adr/006-1-acp-agent-runtime.md), [002](../adr/002-2-tech-stack-and-dependencies.md)
+**ADRs:** [006](../adr/006-2-acp-agent-runtime.md), [002](../adr/002-2-tech-stack-and-dependencies.md)
 
 ### Purpose
 
@@ -399,7 +399,7 @@ JSON-RPC-over-stdio ACP client: spawn, prompt, interrupt, delete, log drain.
 
 | In | Out |
 |----|-----|
-| Subprocess + stdio framing; ACP initialize / session / prompt / cancel / permissions; session/delete and process-group SIGKILL; log mirror including permission grants | Worktree create; local claims; spawn-failure policy |
+| Subprocess + stdio framing; ACP initialize / optional authenticate / session / prompt / cancel / permissions; session/delete and process-group SIGKILL; log mirror including permission grants | Worktree create; local claims; spawn-failure policy |
 
 ### Orkie module API
 
@@ -482,7 +482,7 @@ Normative external reference: [Agent Client Protocol](https://agentclientprotoco
 }
 ```
 
-4. Require `protocolVersion == 2`. Any other version fails the spawn. Remember `capabilities.session.delete` (true only when that field is present and true). If `authMethods` is non-empty → fail spawn with a clear error (v1 does not implement `auth/login`).
+4. Require `protocolVersion == 2`. Any other version fails the spawn. Remember `capabilities.session.delete` (true only when that field is present and true). If `authMethods` is a non-empty list, call `authenticate` with the first method's id (string entry, or object `id` / `methodId`). Empty `authMethods` skips authenticate. Authenticate RPC error fails the spawn.
 5. Request `session/new`:
 
 ```json

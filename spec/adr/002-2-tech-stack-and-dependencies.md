@@ -124,7 +124,7 @@ Allowed only when stdlib cannot do the job cleanly. Update this ADR (or supersed
 - `pyproject.toml` runtime deps: **PyYAML** and **Jinja2**. Dev/test extras: **pytest** and **pytest-cov**.
 - Package data includes `orkie/templates/**` and `orkie/static/**`.
 - `orkie.connectors.github` owns URL building, pagination, auth header, and JSON parsing.
-- `orkie.acp` owns message framing and method names; document OpenCode and Grok Build command lines only as first-class examples ([006-1](006-1-acp-agent-runtime.md)).
+- `orkie.acp` owns message framing and method names; document OpenCode, Grok Build, and Cursor command lines only as first-class examples ([006-2](006-2-acp-agent-runtime.md)).
 - `orkie.config` writes the scaffold from the feature-01 text and reads config with `safe_load`.
 - `orkie.connectors.fake` and `orkie.acp.fake` are first-class modules for the offline suite ([001-2](001-2-process-model-and-module-layout.md), [components](../design/components.md)).
 - Dashboard presentation follows [012-3](012-3-dashboard-stack-and-control-api.md).

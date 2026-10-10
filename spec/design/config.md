@@ -27,7 +27,7 @@ Highest wins:
 | GitHub token | Environment `GITHUB_TOKEN` only (required non-empty for GitHub connector) |
 | Poll interval | YAML `poll_interval_seconds` → default `60` (still must be ≥ 15) |
 | Session caps | YAML per-agent / global → default `1` each |
-| Agent command / prompt | YAML only (no Orkie role catalog) |
+| Agent command / prompt | YAML `command` or `command_ref` (resolved against builtins + `commands`); no Orkie role catalog |
 | Interactive prompts | Allowed only when stdin and stdout are TTYs; no CLI override flag |
 
 ## Top-level shape
@@ -43,11 +43,13 @@ issue_labels:
 max_concurrent_sessions: 1  # optional
 dashboard_port: 8765        # optional
 prompt_root: .              # optional; base for prompt_file
+commands:                   # optional project presets
+  my_fork: [opencode, acp, --foo]
 agents:
   - id: worker
     name: Worker
     role: worker
-    command: [opencode, acp]
+    command_ref: opencode   # XOR command: [opencode, acp]
     max_concurrent_sessions: 1
     prompt: |
       …
@@ -57,7 +59,7 @@ agents:
       # or: {type: labels, labels: [a, b]}
 babysitter:
   enabled: false
-  # when enabled: id, name, role, command, prompt XOR prompt_file
+  # when enabled: id, name, role, command XOR command_ref, prompt XOR prompt_file
 ```
 
 ### Top-level fields
@@ -71,8 +73,23 @@ babysitter:
 | `max_concurrent_sessions` | no | `1` | Integer ≥ `1`. Ceiling on working issue sessions |
 | `dashboard_port` | no | `8765` | Integer `1`–`65535` |
 | `prompt_root` | no | `.` | Non-empty relative path under the project root; reject absolute or `..` escape. Base directory for every `prompt_file` |
+| `commands` | no | — | Object map; see [Command presets](#command-presets) |
 | `agents` | yes | — | Non-empty list of agent objects |
 | `babysitter` | no | `{enabled: false}` | Object; see below |
+
+### Command presets
+
+Exactly one of `command` or `command_ref` on each agent and on the enabled babysitter. Resolve `command_ref` at load; `AgentConfig.command` / babysitter `command` are always argv lists afterward.
+
+**Built-in** (reserved; always available):
+
+| Name | Argv |
+|------|------|
+| `cursor` | `[agent, acp]` |
+| `opencode` | `[opencode, acp]` |
+| `grok` | `[grok, agent, --always-approve, stdio]` |
+
+Optional `commands`: each key non-empty, no whitespace, ≤ 64 chars; each value a non-empty argv list. Key colliding with a built-in name → fail. Unknown `command_ref` → fail. Unused custom names allowed.
 
 ### `connector`
 
@@ -88,7 +105,8 @@ babysitter:
 | `id` | yes | — | Unique among agents and enabled babysitter; non-empty; no whitespace; ≤ 64 chars |
 | `name` | yes | — | Non-empty string |
 | `role` | yes | — | Non-empty string; display/metadata only; not an enum |
-| `command` | yes | — | Non-empty list of strings; `[0]` is executable |
+| `command` | XOR | — | Exactly one of `command` or `command_ref`. Non-empty list of strings; `[0]` is executable |
+| `command_ref` | XOR | — | Non-empty string; built-in or project `commands` name |
 | `max_concurrent_sessions` | no | `1` | Integer ≥ `1` |
 | `prompt` | XOR | — | Exactly one of `prompt` or `prompt_file` |
 | `prompt_file` | XOR | — | Relative path under `prompt_root`; reject absolute or `..` escape; resolved path must stay under the project root |
@@ -111,7 +129,7 @@ An agent matches an issue when **any** of its triggers matches. Evaluated on cur
 | `id` | when enabled | — | Same rules as agent `id`; unique vs agents |
 | `name` | when enabled | — | Non-empty |
 | `role` | when enabled | — | Non-empty |
-| `command` | when enabled | — | Same as agent `command` |
+| `command` / `command_ref` | when enabled | — | Exactly one; same rules as agent |
 | `prompt` / `prompt_file` | when enabled | — | Exactly one |
 
 When `enabled` is `false`, other babysitter fields are **ignored** (not validated for uniqueness or shape). No issue triggers. No `max_concurrent_sessions` field — Orkie enforces at most one babysitter session and excludes it from issue caps.
@@ -166,9 +184,7 @@ agents:
   - id: worker
     name: Worker
     role: worker
-    command:
-      - opencode
-      - acp
+    command_ref: opencode
     max_concurrent_sessions: 1
     prompt: |
       You are working on a single GitHub issue, #__ISSUENO__.
@@ -188,12 +204,13 @@ After write, load it as normal config (no special mode).
 
 ## Documented first-class agent commands
 
-Not exclusive; any ACP-compatible `command` uses the same path:
+Not exclusive; any ACP-compatible argv uses the same path. Built-in `command_ref` names:
 
-| Agent | `command` |
-|-------|-----------|
-| OpenCode | `[opencode, acp]` |
-| Grok Build | `[grok, agent, --always-approve, stdio]` |
+| Agent | `command_ref` | Argv |
+|-------|---------------|------|
+| OpenCode | `opencode` | `[opencode, acp]` |
+| Grok Build | `grok` | `[grok, agent, --always-approve, stdio]` |
+| Cursor | `cursor` | `[agent, acp]` |
 
 ## Environment
 

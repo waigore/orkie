@@ -48,3 +48,29 @@ def test_create_and_remove_worktree(tmp_path: Path) -> None:
     path = service.create("sess-1")
     assert path.exists()
     service.remove(path)
+    assert not path.exists()
+
+
+@pytest.mark.integration
+def test_remove_discovers_git_dir_from_worktree(tmp_path: Path) -> None:
+    """Removal must not require the creating process's project_root (ADR 008)."""
+    project = tmp_path / "repo"
+    project.mkdir()
+    _init_repo(project)
+    state = tmp_path / "state"
+    state.mkdir()
+    creator = WorktreeService(state, project)
+    path = creator.create("sess-2")
+    assert path.exists()
+    other_root = tmp_path / "other-clone"
+    other_root.mkdir()
+    remover = WorktreeService(state, other_root)
+    remover.remove(path)
+    assert not path.exists()
+    listed = subprocess.run(
+        ["git", "-C", str(project), "worktree", "list", "--porcelain"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert str(path) not in listed

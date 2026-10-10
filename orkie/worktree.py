@@ -72,11 +72,23 @@ class WorktreeService:
 
     def remove(self, worktree_path: Path) -> None:
         try:
-            self._run(
+            common = self._run(
                 [
                     "git",
                     "-C",
-                    str(self._project_root),
+                    str(worktree_path),
+                    "rev-parse",
+                    "--git-common-dir",
+                ]
+            ).strip()
+            git_dir = Path(common)
+            if not git_dir.is_absolute():
+                git_dir = (worktree_path / git_dir).resolve()
+            self._run(
+                [
+                    "git",
+                    "--git-dir",
+                    str(git_dir),
                     "worktree",
                     "remove",
                     "--force",

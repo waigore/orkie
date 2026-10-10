@@ -20,6 +20,7 @@ class FakeSessionState:
     alive: bool = True
     interrupted: bool = False
     ended: bool = False
+    force_killed: bool = False
     prompts: list[str] = field(default_factory=list)
 
 
@@ -110,6 +111,16 @@ class FakeAcpClient:
         if state is not None:
             state.ended = True
             state.alive = False
+        if handle.process.poll() is None:
+            handle.process.kill()
+            handle.process.wait(timeout=2)
+
+    def force_kill(self, handle: SessionHandle) -> None:
+        state = self.sessions.get(handle.session_id)
+        if state is not None:
+            state.force_killed = True
+            state.alive = False
+        handle._closed = True
         if handle.process.poll() is None:
             handle.process.kill()
             handle.process.wait(timeout=2)

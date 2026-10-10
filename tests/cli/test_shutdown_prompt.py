@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import subprocess
 import threading
 from pathlib import Path
+
 from orkie.acp.fake import FakeAcpClient
-from orkie.cli import choose_shutdown_mode
+from orkie.acp.stdio import SessionHandle
+from orkie.cli import choose_shutdown_mode, shutdown
 from orkie.config import (
     AgentConfig,
     BabysitterConfig,
@@ -16,11 +19,9 @@ from orkie.config import (
 from orkie.connectors.fake import FakeConnector
 from orkie.connectors.types import OwnerRepo
 from orkie.intake import Intake
-from orkie.orchestration import RuntimeContext
+from orkie.orchestration import Orchestrator, RuntimeContext
 from orkie.state import StateStore
 from orkie.worktree import WorktreeService
-from orkie.acp.stdio import SessionHandle
-import subprocess
 
 
 def _ctx(tmp_path: Path) -> RuntimeContext:
@@ -112,3 +113,28 @@ def test_choose_normal_letter(tmp_path: Path, monkeypatch) -> None:
     assert choose_shutdown_mode(ctx) == "normal"
     proc.kill()
     proc.wait()
+
+
+def test_immediate_kill_uses_force_kill(tmp_path: Path, monkeypatch) -> None:
+    ctx = _ctx(tmp_path)
+    ctx.orchestrator = Orchestrator(ctx)
+    assert isinstance(ctx.acp_client, FakeAcpClient)
+    handle = ctx.acp_client.spawn(
+        "s1",
+        command=["cat"],
+        worktree_path=tmp_path,
+        agent_id="w",
+        prompt="p",
+        issue_number=1,
+        pr_number=None,
+        env_token="t",
+        append_log=lambda *a, **k: None,
+    )
+    ctx.sessions["s1"] = handle
+    ctx.immediate_kill.set()
+    monkeypatch.setattr("orkie.cli.WRAP_UP_WAIT_SECONDS", 0)
+    monkeypatch.setattr("orkie.dashboard.stop_dashboard", lambda _ctx: None)
+    code = shutdown(ctx, mode="graceful")
+    assert code == 0
+    state = ctx.acp_client.sessions["s1"]
+    assert state.force_killed is True

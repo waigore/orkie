@@ -97,6 +97,18 @@ def test_append_log_redacts_token(tmp_path: Path) -> None:
     assert "issue=1" in text
 
 
+def test_set_github_token_refreshes_redaction(tmp_path: Path) -> None:
+    store = StateStore(tmp_path, github_token=None)
+    store.ensure_layout()
+    store.set_github_token("new-secret-token")
+    store.append_log(
+        "worker", "token=new-secret-token", session_id="abc", issue_number=1
+    )
+    text = store.read_log("worker")
+    assert "new-secret-token" not in text
+    assert "***" in text
+
+
 def test_acquire_lock_and_release(tmp_path: Path) -> None:
     store = StateStore(tmp_path)
     store.acquire_lock()

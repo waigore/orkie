@@ -223,3 +223,142 @@ def test_interrupt_session_keeps_claim(tmp_path: Path) -> None:
     ctx.orchestrator.interrupt_session(session_id)
     assert session_id in ctx.sessions
     assert ctx.store.load_claims()
+
+
+def test_failed_spawn_continues_to_next_issue(tmp_path: Path) -> None:
+    """A spawn that does not occupy a slot must not skip later work (conventions)."""
+    issues = [
+        Issue(1, "a", "b", "u", "open", ["orkie"]),
+        Issue(2, "b", "b", "u", "open", ["orkie"]),
+    ]
+    ctx = _ctx(tmp_path, issues=issues)
+    assert ctx.orchestrator is not None
+    assert isinstance(ctx.acp_client, FakeAcpClient)
+    ctx.config = Config(
+        version=ctx.config.version,
+        connector=ctx.config.connector,
+        poll_interval_seconds=ctx.config.poll_interval_seconds,
+        issue_labels=ctx.config.issue_labels,
+        max_concurrent_sessions=2,
+        dashboard_port=ctx.config.dashboard_port,
+        agents=[
+            AgentConfig(
+                id="worker",
+                name="Worker",
+                role="worker",
+                command=["opencode", "acp"],
+                max_concurrent_sessions=2,
+                prompt_template="Issue __ISSUENO__",
+                triggers=[Trigger(type="any", labels=[])],
+            )
+        ],
+        babysitter=ctx.config.babysitter,
+    )
+    ctx.intake = Intake(ctx.config, ctx.connector, ctx.store)
+    calls = {"n": 0}
+    original = ctx.acp_client.spawn
+
+    def flaky_spawn(session_id: str, **kwargs: object) -> object:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            ctx.acp_client.fail_spawn = True
+        else:
+            ctx.acp_client.fail_spawn = False
+        return original(session_id, **kwargs)  # type: ignore[arg-type]
+
+    ctx.acp_client.spawn = flaky_spawn  # type: ignore[method-assign]
+    with ctx.cycle_lock:
+        ctx.orchestrator.run_cycle()
+    assert len(ctx.sessions) == 1
+    handle = next(iter(ctx.sessions.values()))
+    assert handle.issue_number == 2
+    assert {c.issue_number for c in ctx.store.load_claims()} == {1, 2}
+
+
+def test_new_claim_skips_capped_agent_issue(tmp_path: Path) -> None:
+    issues = [
+        Issue(1, "a", "b", "u", "open", ["alpha"]),
+        Issue(2, "b", "b", "u", "open", ["beta"]),
+    ]
+    ctx = _ctx(tmp_path, issues=issues)
+    agents = [
+        AgentConfig(
+            id="a",
+            name="A",
+            role="worker",
+            command=["opencode", "acp"],
+            max_concurrent_sessions=1,
+            prompt_template="Issue __ISSUENO__",
+            triggers=[Trigger(type="labels", labels=["alpha"])],
+        ),
+        AgentConfig(
+            id="b",
+            name="B",
+            role="worker",
+            command=["opencode", "acp"],
+            max_concurrent_sessions=1,
+            prompt_template="Issue __ISSUENO__",
+            triggers=[Trigger(type="labels", labels=["beta"])],
+        ),
+    ]
+    ctx.config = Config(
+        version=ctx.config.version,
+        connector=ctx.config.connector,
+        poll_interval_seconds=ctx.config.poll_interval_seconds,
+        issue_labels=["alpha", "beta"],
+        max_concurrent_sessions=2,
+        dashboard_port=ctx.config.dashboard_port,
+        agents=agents,
+        babysitter=ctx.config.babysitter,
+    )
+    ctx.intake = Intake(ctx.config, ctx.connector, ctx.store)
+    # Occupy agent A's only slot with a live session on another issue.
+    from orkie.acp.stdio import SessionHandle
+    import subprocess
+
+    proc = subprocess.Popen(
+        ["cat"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    ctx.sessions["pre"] = SessionHandle(
+        session_id="pre",
+        acp_session_id="acp-pre",
+        agent_id="a",
+        issue_number=99,
+        pr_number=None,
+        worktree_path=tmp_path,
+        process=proc,
+        reader_thread=threading.Thread(target=lambda: None, daemon=True),
+        session_delete=True,
+    )
+    assert ctx.orchestrator is not None
+    with ctx.cycle_lock:
+        ctx.orchestrator.run_cycle()
+    claimed = {c.issue_number: c.agent_id for c in ctx.store.load_claims()}
+    assert 1 not in claimed
+    assert claimed.get(2) == "b"
+    proc.kill()
+    proc.wait(timeout=2)
+
+
+def test_babysitter_skipped_after_mid_cycle_shutdown(tmp_path: Path) -> None:
+    issue = Issue(42, "t", "b", "u", "open", ["orkie"])
+    pr = PullRequest(7, "t", "u", "h", "main", False, "dirty")
+    ctx = _ctx(tmp_path, issues=[issue], pulls=[pr], babysitter=True)
+    assert ctx.orchestrator is not None
+    assert isinstance(ctx.acp_client, FakeAcpClient)
+    original = ctx.acp_client.spawn
+
+    def spawn_then_request_stop(session_id: str, **kwargs: object) -> object:
+        handle = original(session_id, **kwargs)  # type: ignore[arg-type]
+        ctx.prompt_requested.set()
+        return handle
+
+    ctx.acp_client.spawn = spawn_then_request_stop  # type: ignore[method-assign]
+    with ctx.cycle_lock:
+        ctx.orchestrator.run_cycle()
+    assert len(ctx.sessions) == 1
+    handle = next(iter(ctx.sessions.values()))
+    assert handle.issue_number == 42
+    assert handle.pr_number is None
+    assert isinstance(ctx.worktree, StubWorktree)
+    assert len(ctx.worktree.created) == 1
