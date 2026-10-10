@@ -42,26 +42,95 @@ def test_scaffold_exact_text(tmp_path: Path) -> None:
     assert text == DEFAULT_SCAFFOLD
 
 
-def test_prompt_file_rejects_escape(write_scaffold_config: Path) -> None:
-    path = write_scaffold_config / ".orkie" / "config.yaml"
-    path.write_text(
-        """\
+def _write_prompt_file_config(
+    project: Path,
+    *,
+    prompt_root: str | None = None,
+    prompt_file: str,
+) -> None:
+    root_line = f"prompt_root: {prompt_root}\n" if prompt_root is not None else ""
+    (project / ".orkie" / "config.yaml").write_text(
+        f"""\
 version: 1
 connector:
   type: github
 issue_labels: [orkie]
-agents:
+{root_line}agents:
   - id: worker
     name: Worker
     role: worker
     command: [opencode, acp]
-    prompt_file: ../../secret.md
+    prompt_file: {prompt_file}
     triggers:
       - type: any
 """,
         encoding="utf-8",
     )
+
+
+def test_prompt_file_default_root(write_scaffold_config: Path) -> None:
+    prompt = write_scaffold_config / "prompts" / "worker.md"
+    prompt.parent.mkdir()
+    prompt.write_text("from project root\n", encoding="utf-8")
+    _write_prompt_file_config(write_scaffold_config, prompt_file="prompts/worker.md")
+    config = load_config(write_scaffold_config)
+    assert config.agents[0].prompt_template == "from project root\n"
+
+
+def test_prompt_file_custom_root(write_scaffold_config: Path) -> None:
+    prompt = write_scaffold_config / "prompts" / "worker.md"
+    prompt.parent.mkdir()
+    prompt.write_text("from prompt root\n", encoding="utf-8")
+    _write_prompt_file_config(
+        write_scaffold_config,
+        prompt_root="prompts",
+        prompt_file="worker.md",
+    )
+    config = load_config(write_scaffold_config)
+    assert config.agents[0].prompt_template == "from prompt root\n"
+
+
+def test_prompt_file_orkie_root_migration(write_scaffold_config: Path) -> None:
+    prompt = write_scaffold_config / ".orkie" / "worker.md"
+    prompt.write_text("under orkie\n", encoding="utf-8")
+    _write_prompt_file_config(
+        write_scaffold_config,
+        prompt_root=".orkie",
+        prompt_file="worker.md",
+    )
+    config = load_config(write_scaffold_config)
+    assert config.agents[0].prompt_template == "under orkie\n"
+
+
+def test_prompt_file_rejects_escape(write_scaffold_config: Path) -> None:
+    _write_prompt_file_config(write_scaffold_config, prompt_file="../../secret.md")
     with pytest.raises(ConfigError, match="prompt_file"):
+        load_config(write_scaffold_config)
+
+
+def test_prompt_file_rejects_absolute(write_scaffold_config: Path) -> None:
+    _write_prompt_file_config(write_scaffold_config, prompt_file="/tmp/secret.md")
+    with pytest.raises(ConfigError, match="prompt_file"):
+        load_config(write_scaffold_config)
+
+
+def test_prompt_root_rejects_escape(write_scaffold_config: Path) -> None:
+    _write_prompt_file_config(
+        write_scaffold_config,
+        prompt_root="..",
+        prompt_file="worker.md",
+    )
+    with pytest.raises(ConfigError, match="prompt_root"):
+        load_config(write_scaffold_config)
+
+
+def test_prompt_root_rejects_absolute(write_scaffold_config: Path) -> None:
+    _write_prompt_file_config(
+        write_scaffold_config,
+        prompt_root="/tmp",
+        prompt_file="worker.md",
+    )
+    with pytest.raises(ConfigError, match="prompt_root"):
         load_config(write_scaffold_config)
 
 

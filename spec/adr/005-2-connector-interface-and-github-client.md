@@ -25,7 +25,7 @@ Minimum surface for v1:
 | `list_open_pull_requests() -> list[PullRequest]` | Open PRs: number, title, url, head, base, draft, mergeable_state |
 | `probe_privileges(required: set[Privilege]) -> ProbeResult` | Required vs warn-only gaps |
 
-`Issue` and `PullRequest` are the prompt-substitution inputs ([003-2](003-2-config-load-and-bootstrap-sequence.md)).
+`Issue` and `PullRequest` are the prompt-substitution inputs ([003-3](003-3-config-load-and-bootstrap-sequence.md)).
 
 Issue comments are out of scope (no read/write comment APIs in v1). Label create, add, and remove are out of scope.
 
@@ -46,7 +46,7 @@ Issue comments are out of scope (no read/write comment APIs in v1). Label create
 
 ### Privilege probing
 
-The probe is read-only. Map feature-03 required privileges to: token present, repository read, open-issue read, and open-PR read when the babysitter is enabled. An empty token is a missing privilege and performs no HTTP request. HTTP 401 or 403 on a required read is a missing privilege (`AuthError`). A rate-limit response is `RateLimitError`, which is a failed fetch during a poll and a probe failure at bootstrap, not a distinct warn-only gap. The v1 warn-only set is empty. Interactive vs non-interactive handling stays in bootstrap ([003-2](003-2-config-load-and-bootstrap-sequence.md)); the connector only reports gaps.
+The probe is read-only. Map feature-03 required privileges to: token present, repository read, open-issue read, and open-PR read when the babysitter is enabled. An empty token is a missing privilege and performs no HTTP request. HTTP 401 or 403 on a required read is a missing privilege (`AuthError`). A rate-limit response is `RateLimitError`, which is a failed fetch during a poll and a probe failure at bootstrap, not a distinct warn-only gap. The v1 warn-only set is empty. Interactive vs non-interactive handling stays in bootstrap ([003-3](003-3-config-load-and-bootstrap-sequence.md)); the connector only reports gaps.
 
 `Privilege` names the required reads. It has no label-create, label-add, or label-remove member.
 

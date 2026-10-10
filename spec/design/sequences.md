@@ -2,7 +2,7 @@
 
 | Features | ADRs |
 |----------|------|
-| [01](../feature/01-project-bootstrap-and-config.md), [05](../feature/05-agent-orchestration.md)–[08](../feature/08-cli-and-dashboard.md) | [003](../adr/003-2-config-load-and-bootstrap-sequence.md), [007](../adr/007-2-orchestration-cycle-and-claim-session-state-machine.md), [009](../adr/009-2-intake-poll-and-delta.md)–[012](../adr/012-2-dashboard-stack-and-control-api.md) |
+| [01](../feature/01-project-bootstrap-and-config.md), [05](../feature/05-agent-orchestration.md)–[08](../feature/08-cli-and-dashboard.md) | [003](../adr/003-3-config-load-and-bootstrap-sequence.md), [007](../adr/007-2-orchestration-cycle-and-claim-session-state-machine.md), [009](../adr/009-2-intake-poll-and-delta.md)–[012](../adr/012-2-dashboard-stack-and-control-api.md) |
 
 Happy paths are diagrams. Unhappy flows, retries, and edge cases are **Notes** under each diagram — keep the diagrams readable.
 
@@ -65,7 +65,7 @@ sequenceDiagram
 | Dashboard port in use | Exit non-zero; name `127.0.0.1:port`; no loop |
 | Any bootstrap failure | Dashboard never presented as healthy |
 
-Strict step order is ADR [003](../adr/003-2-config-load-and-bootstrap-sequence.md) steps 1–12. Validation before lock; lock before the privilege probe. The probe is read-only.
+Strict step order is ADR [003](../adr/003-3-config-load-and-bootstrap-sequence.md) steps 1–12. Validation before lock; lock before the privilege probe. The probe is read-only.
 
 ---
 

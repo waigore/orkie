@@ -58,6 +58,6 @@ Orkie is a long-running orchestrator (features [05](../feature/05-agent-orchestr
 
 ## Consequences for design
 
-- Entrypoint sequence: parse CLI → resolve project root → bootstrap ([003-2](003-2-config-load-and-bootstrap-sequence.md)) → start dashboard thread → run poll loop until shutdown ([011-2](011-2-cli-signals-and-process-lifecycle.md)).
+- Entrypoint sequence: parse CLI → resolve project root → bootstrap ([003-3](003-3-config-load-and-bootstrap-sequence.md)) → start dashboard thread → run poll loop until shutdown ([011-2](011-2-cli-signals-and-process-lifecycle.md)).
 - Shared in-memory handles: loaded config, connector instance, state store, session table (live ACP handles), shutdown event, immediate-kill flag, the cycle lock, and the resolved start checkout.
 - Tests inject fakes at `connectors` and `acp` boundaries; default offline suite needs no network.

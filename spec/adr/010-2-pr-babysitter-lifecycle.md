@@ -14,7 +14,7 @@ Feature [07](../feature/07-pr-babysitter.md) defines an optional single babysitt
 
 ### Gating
 
-- When `babysitter.enabled` is false: no PR list fetch for orchestration; no babysitter spawn; the “read PRs” privilege is not required ([003-2](003-2-config-load-and-bootstrap-sequence.md), [005-2](005-2-connector-interface-and-github-client.md)).
+- When `babysitter.enabled` is false: no PR list fetch for orchestration; no babysitter spawn; the “read PRs” privilege is not required ([003-3](003-3-config-load-and-bootstrap-sequence.md), [005-2](005-2-connector-interface-and-github-client.md)).
 - When true: one config identity; at most one working babysitter session.
 
 ### Selection (each cycle, if no babysitter session is working)
@@ -34,7 +34,7 @@ A failed PR fetch skips this step only. It does not change claims or issue sessi
 ### Spawn
 
 - New `session_id` minted by orchestration; bind `pr_number` only. No local issue claim.
-- Substitute every feature-01 token. Issue tokens are empty ([003-2](003-2-config-load-and-bootstrap-sequence.md)).
+- Substitute every feature-01 token. Issue tokens are empty ([003-3](003-3-config-load-and-bootstrap-sequence.md)).
 - Dedicated worktree ([008-1](008-1-git-worktrees.md)); implicit permission grants ([006-1](006-1-acp-agent-runtime.md)).
 - Does not consume issue session caps.
 

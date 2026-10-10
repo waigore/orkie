@@ -24,7 +24,7 @@ Feature [08](../feature/08-cli-and-dashboard.md) defines the `orkie` command, co
 ### Process lifecycle
 
 ```text
-parse args -> bootstrap ([003-2](003-2-config-load-and-bootstrap-sequence.md))
+parse args -> bootstrap ([003-3](003-3-config-load-and-bootstrap-sequence.md))
   -> start dashboard thread ([012-2](012-2-dashboard-stack-and-control-api.md))
   -> main loop sleep/poll until shutdown_event
   -> normal or graceful shutdown -> exit 0
@@ -66,7 +66,7 @@ Enforced by the state lock ([004-2](004-2-local-state-format-and-process-lock.md
 
 ### Interactive
 
-Detection lives in [003-2](003-2-config-load-and-bootstrap-sequence.md): stdin and stdout are both TTYs. The CLI prints bootstrap errors and warn-only privilege gaps to stderr or stdout. The systemd unit is documented in feature 08 only; it is not shipped in-repo. Under that unit the process is non-interactive, so SIGTERM is normal shutdown.
+Detection lives in [003-3](003-3-config-load-and-bootstrap-sequence.md): stdin and stdout are both TTYs. The CLI prints bootstrap errors and warn-only privilege gaps to stderr or stdout. The systemd unit is documented in feature 08 only; it is not shipped in-repo. Under that unit the process is non-interactive, so SIGTERM is normal shutdown.
 
 ## Reasoning
 

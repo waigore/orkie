@@ -180,6 +180,7 @@ def _parse_config(root: dict[str, Any], project_root: Path) -> Config:
         "issue_labels",
         "max_concurrent_sessions",
         "dashboard_port",
+        "prompt_root",
         "agents",
         "babysitter",
     }
@@ -201,12 +202,23 @@ def _parse_config(root: dict[str, Any], project_root: Path) -> Config:
     dashboard_port = _optional_int(root, "dashboard_port", default=8765, path="dashboard_port")
     if dashboard_port < 1 or dashboard_port > 65535:
         raise ConfigError("dashboard_port: must be an integer 1–65535")
+    prompt_root_raw = root.get("prompt_root", ".")
+    prompt_base = _resolve_project_relative(
+        prompt_root_raw, project_root, path="prompt_root"
+    )
     agents_raw = root.get("agents")
     if not isinstance(agents_raw, list) or len(agents_raw) == 0:
         raise ConfigError("agents: must be a non-empty list")
     agents: list[AgentConfig] = []
     for index, item in enumerate(agents_raw):
-        agents.append(_parse_agent(item, project_root, path=f"agents[{index}]"))
+        agents.append(
+            _parse_agent(
+                item,
+                project_root,
+                prompt_base,
+                path=f"agents[{index}]",
+            )
+        )
     babysitter_raw = root.get("babysitter")
     if babysitter_raw is None:
         babysitter = BabysitterConfig(
@@ -221,6 +233,7 @@ def _parse_config(root: dict[str, Any], project_root: Path) -> Config:
         babysitter = _parse_babysitter(
             _require_dict(babysitter_raw, path="babysitter"),
             project_root,
+            prompt_base,
         )
     _check_unique_ids(agents, babysitter)
     return Config(
@@ -269,7 +282,13 @@ def _parse_issue_labels(raw: object) -> list[str]:
     return labels
 
 
-def _parse_agent(raw: object, project_root: Path, *, path: str) -> AgentConfig:
+def _parse_agent(
+    raw: object,
+    project_root: Path,
+    prompt_base: Path,
+    *,
+    path: str,
+) -> AgentConfig:
     obj = _require_dict(raw, path=path)
     _reject_unknown(
         obj,
@@ -299,7 +318,7 @@ def _parse_agent(raw: object, project_root: Path, *, path: str) -> AgentConfig:
     )
     if max_sessions < 1:
         raise ConfigError(f"{path}.max_concurrent_sessions: must be an integer >= 1")
-    prompt_template = _resolve_prompt(obj, project_root, path=path)
+    prompt_template = _resolve_prompt(obj, project_root, prompt_base, path=path)
     triggers_raw = obj.get("triggers")
     if not isinstance(triggers_raw, list) or len(triggers_raw) == 0:
         raise ConfigError(f"{path}.triggers: must be a non-empty list")
@@ -317,7 +336,11 @@ def _parse_agent(raw: object, project_root: Path, *, path: str) -> AgentConfig:
     )
 
 
-def _parse_babysitter(raw: dict[str, Any], project_root: Path) -> BabysitterConfig:
+def _parse_babysitter(
+    raw: dict[str, Any],
+    project_root: Path,
+    prompt_base: Path,
+) -> BabysitterConfig:
     _reject_unknown(
         raw,
         {"enabled", "id", "name", "role", "command", "prompt", "prompt_file"},
@@ -344,7 +367,7 @@ def _parse_babysitter(raw: dict[str, Any], project_root: Path) -> BabysitterConf
     if not role:
         raise ConfigError("babysitter.role: must be a non-empty string")
     command = _parse_command(raw.get("command"), path="babysitter.command")
-    prompt_template = _resolve_prompt(raw, project_root, path="babysitter")
+    prompt_template = _resolve_prompt(raw, project_root, prompt_base, path="babysitter")
     return BabysitterConfig(
         enabled=True,
         id=babysitter_id,
@@ -375,7 +398,26 @@ def _parse_trigger(raw: object, *, path: str) -> Trigger:
     raise ConfigError(f"{path}.type: must be any or labels")
 
 
-def _resolve_prompt(obj: dict[str, Any], project_root: Path, *, path: str) -> str:
+def _resolve_project_relative(rel: object, project_root: Path, *, path: str) -> Path:
+    if not isinstance(rel, str) or not rel:
+        raise ConfigError(f"{path}: must be a non-empty relative path under the project root")
+    candidate = Path(rel)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise ConfigError(f"{path}: must be a relative path under the project root")
+    full = (project_root / candidate).resolve()
+    root = project_root.resolve()
+    if not full.is_relative_to(root):
+        raise ConfigError(f"{path}: must be a relative path under the project root")
+    return full
+
+
+def _resolve_prompt(
+    obj: dict[str, Any],
+    project_root: Path,
+    prompt_base: Path,
+    *,
+    path: str,
+) -> str:
     has_prompt = "prompt" in obj
     has_file = "prompt_file" in obj
     if has_prompt == has_file:
@@ -388,12 +430,17 @@ def _resolve_prompt(obj: dict[str, Any], project_root: Path, *, path: str) -> st
     rel = obj["prompt_file"]
     if not isinstance(rel, str) or not rel:
         raise ConfigError(f"{path}.prompt_file: must be a non-empty relative path")
-    if Path(rel).is_absolute() or ".." in Path(rel).parts:
-        raise ConfigError(f"{path}.prompt_file: must be a relative path under .orkie/")
-    full = (project_root / ".orkie" / rel).resolve()
-    orkie_root = (project_root / ".orkie").resolve()
-    if not str(full).startswith(str(orkie_root)):
-        raise ConfigError(f"{path}.prompt_file: must be a relative path under .orkie/")
+    candidate = Path(rel)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise ConfigError(
+            f"{path}.prompt_file: must be a relative path under prompt_root"
+        )
+    full = (prompt_base / candidate).resolve()
+    root = project_root.resolve()
+    if not full.is_relative_to(root):
+        raise ConfigError(
+            f"{path}.prompt_file: must be a relative path under the project root"
+        )
     try:
         return full.read_text(encoding="utf-8")
     except OSError as exc:

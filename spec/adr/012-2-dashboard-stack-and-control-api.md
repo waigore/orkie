@@ -17,7 +17,7 @@ Feature [08](../feature/08-cli-and-dashboard.md) requires a loopback web UI with
 - **stdlib** `http.server.ThreadingHTTPServer` bound to `127.0.0.1` only.
 - Port: CLI `--port` if set, else `dashboard_port` (default 8765).
 - HTML generated in `orkie.dashboard` with string templates and `html.escape`. No SPA, no Jinja2, no auth beyond loopback.
-- Runs on a **background thread** ([001-2](001-2-process-model-and-module-layout.md)). Startup prints `http://127.0.0.1:<port>/`. Bind failure aborts bootstrap ([003-2](003-2-config-load-and-bootstrap-sequence.md)).
+- Runs on a **background thread** ([001-2](001-2-process-model-and-module-layout.md)). Startup prints `http://127.0.0.1:<port>/`. Bind failure aborts bootstrap ([003-3](003-3-config-load-and-bootstrap-sequence.md)).
 - Full page reload. No live push.
 
 ### Pages (v1)

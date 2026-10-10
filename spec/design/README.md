@@ -67,7 +67,7 @@ Companion product docs: [vocabulary](../feature/vocabulary.md), [users](../featu
 |-----|--------------|
 | [001 Process and modules](../adr/001-2-process-model-and-module-layout.md) | components, conventions, README |
 | [002 Tech stack](../adr/002-1-tech-stack-and-dependencies.md) | components, config, ui, conventions |
-| [003 Bootstrap](../adr/003-2-config-load-and-bootstrap-sequence.md) | sequences, components (`cli`, `config`), config |
+| [003 Bootstrap](../adr/003-3-config-load-and-bootstrap-sequence.md) | sequences, components (`cli`, `config`), config |
 | [004 Local state](../adr/004-2-local-state-format-and-process-lock.md) | data, components (`state`) |
 | [005 Connector](../adr/005-2-connector-interface-and-github-client.md) | components (`connectors`) |
 | [006 ACP](../adr/006-1-acp-agent-runtime.md) | components (`acp`), sequences |

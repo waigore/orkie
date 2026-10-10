@@ -2,7 +2,7 @@
 
 | Features | ADRs |
 |----------|------|
-| [01](../feature/01-project-bootstrap-and-config.md), [03](../feature/03-connector-interface-and-github.md), [08](../feature/08-cli-and-dashboard.md) | [002](../adr/002-1-tech-stack-and-dependencies.md), [003](../adr/003-2-config-load-and-bootstrap-sequence.md) |
+| [01](../feature/01-project-bootstrap-and-config.md), [03](../feature/03-connector-interface-and-github.md), [08](../feature/08-cli-and-dashboard.md) | [002](../adr/002-1-tech-stack-and-dependencies.md), [003](../adr/003-3-config-load-and-bootstrap-sequence.md) |
 
 Canonical product schema: feature [01](../feature/01-project-bootstrap-and-config.md). This document is the implementable validation shape, defaults, and precedence.
 
@@ -42,6 +42,7 @@ issue_labels:
   - orkie
 max_concurrent_sessions: 1  # optional
 dashboard_port: 8765        # optional
+prompt_root: .              # optional; base for prompt_file
 agents:
   - id: worker
     name: Worker
@@ -69,6 +70,7 @@ babysitter:
 | `issue_labels` | yes | — | Non-empty list of unique label names; each non-empty, ≤ 50 chars |
 | `max_concurrent_sessions` | no | `1` | Integer ≥ `1`. Ceiling on working issue sessions |
 | `dashboard_port` | no | `8765` | Integer `1`–`65535` |
+| `prompt_root` | no | `.` | Non-empty relative path under the project root; reject absolute or `..` escape. Base directory for every `prompt_file` |
 | `agents` | yes | — | Non-empty list of agent objects |
 | `babysitter` | no | `{enabled: false}` | Object; see below |
 
@@ -89,7 +91,7 @@ babysitter:
 | `command` | yes | — | Non-empty list of strings; `[0]` is executable |
 | `max_concurrent_sessions` | no | `1` | Integer ≥ `1` |
 | `prompt` | XOR | — | Exactly one of `prompt` or `prompt_file` |
-| `prompt_file` | XOR | — | Relative path under `.orkie/` only; reject absolute or `..` escape |
+| `prompt_file` | XOR | — | Relative path under `prompt_root`; reject absolute or `..` escape; resolved path must stay under the project root |
 | `triggers` | yes | — | Non-empty list of trigger objects |
 
 ### Trigger object

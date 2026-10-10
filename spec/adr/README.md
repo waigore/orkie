@@ -67,7 +67,7 @@ Anything under `spec/adr/*.md` (except history links) is current — link those 
 |----|-------|--------|----------|
 | [001](001-2-process-model-and-module-layout.md) | Process model and module layout | Accepted | All; esp. 05, 08 |
 | [002](002-1-tech-stack-and-dependencies.md) | Tech stack and dependencies | Accepted | All |
-| [003](003-2-config-load-and-bootstrap-sequence.md) | Config load and bootstrap sequence | Accepted | 01, 03, 08 |
+| [003](003-3-config-load-and-bootstrap-sequence.md) | Config load and bootstrap sequence | Accepted | 01, 03, 08 |
 | [004](004-2-local-state-format-and-process-lock.md) | Local state format and process lock | Accepted | 02, 08 |
 | [005](005-2-connector-interface-and-github-client.md) | Connector interface and GitHub client | Accepted | 03, 06, 07 |
 | [006](006-1-acp-agent-runtime.md) | ACP agent runtime | Accepted | 04, 05 |

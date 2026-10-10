@@ -36,7 +36,7 @@ dashboard → state (read), orchestration (controls only)
 ## `orkie.cli`
 
 **Features:** [01](../feature/01-project-bootstrap-and-config.md), [08](../feature/08-cli-and-dashboard.md)  
-**ADRs:** [003](../adr/003-2-config-load-and-bootstrap-sequence.md), [011](../adr/011-2-cli-signals-and-process-lifecycle.md)
+**ADRs:** [003](../adr/003-3-config-load-and-bootstrap-sequence.md), [011](../adr/011-2-cli-signals-and-process-lifecycle.md)
 
 ### Purpose
 
@@ -98,7 +98,7 @@ Unix-like hosts only for process lock (macOS/Linux). Document that on refuse-sta
 ## `orkie.config`
 
 **Features:** [01](../feature/01-project-bootstrap-and-config.md)  
-**ADRs:** [002](../adr/002-1-tech-stack-and-dependencies.md), [003](../adr/003-2-config-load-and-bootstrap-sequence.md)
+**ADRs:** [002](../adr/002-1-tech-stack-and-dependencies.md), [003](../adr/003-3-config-load-and-bootstrap-sequence.md)
 
 ### Purpose
 
@@ -108,7 +108,7 @@ Load and validate `.orkie/config.yaml`, write the default scaffold on accept, su
 
 | In | Out |
 |----|-----|
-| YAML load (`yaml.safe_load`); schema validation; defaults; `prompt_file` resolution under `.orkie/`; scaffold write (exact feature-01 text); token substitution | Repo remote resolution; privileges; state I/O |
+| YAML load (`yaml.safe_load`); schema validation; defaults; `prompt_root` resolve under project root; `prompt_file` resolution under `prompt_root` (jailed to project root); scaffold write (exact feature-01 text); token substitution | Repo remote resolution; privileges; state I/O |
 
 ### Interfaces
 

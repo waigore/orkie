@@ -72,11 +72,11 @@ Actors are defined in [users.md](users.md).
 **When** an operator stores or expects API tokens inside `.orkie/`  
 **Then** Orkie does not treat `.orkie/` as a credential store. Bootstrap reads the GitHub token from `GITHUB_TOKEN`
 
-### Related prompt files live under `.orkie/`
+### Prompt files are project-level and jailed to the project root
 
 **Given** an agent or babysitter uses `prompt_file`  
 **When** bootstrap loads config  
-**Then** Orkie reads that file from inside `.orkie/` and rejects a path that is absolute or that escapes `.orkie/`
+**Then** Orkie resolves that path relative to `prompt_root` (default: the project root) and rejects a path that is absolute or that escapes the project root. `prompt_root` itself must be a relative path under the project root
 
 ## Config schema
 
@@ -92,6 +92,7 @@ The only config file is `.orkie/config.yaml`. `version` must be `1`. Unknown fie
 | `issue_labels` | yes | | One or more GitHub label names. An open issue is an intake issue when it is not a pull request and has at least one of these labels. |
 | `max_concurrent_sessions` | no | `1` | Global ceiling on working issue sessions across all agents. Integer `>= 1`. |
 | `dashboard_port` | no | `8765` | Loopback TCP port for the local dashboard. Integer `1`–`65535`. Overridable on the CLI (see [08-cli-and-dashboard.md](08-cli-and-dashboard.md)). |
+| `prompt_root` | no | `.` | Directory relative to the project root used as the base for every `prompt_file`. Must be a non-empty relative path with no `..` segments; after resolve it must stay under the project root. |
 | `agents` | yes | | One or more agent definitions. |
 | `babysitter` | no | `{enabled: false}` | Optional PR babysitter. |
 
@@ -116,7 +117,7 @@ Each entry in `agents` is one config identity. It is not a live session.
 | `command` | yes | | Non-empty argument list used to spawn the ACP agent. The first item is the executable. |
 | `max_concurrent_sessions` | no | `1` | Ceiling for live sessions of this config identity. Integer `>= 1`. The global ceiling still applies. |
 | `prompt` | exactly one of `prompt` or `prompt_file` | | Inline prompt template. Both set, or neither set, fails validation. |
-| `prompt_file` | exactly one of `prompt` or `prompt_file` | | Path relative to `.orkie/` for the prompt template. Both set, or neither set, fails validation. |
+| `prompt_file` | exactly one of `prompt` or `prompt_file` | | Path relative to `prompt_root` for the prompt template. Must be a non-empty relative path with no `..` segments; after resolve it must stay under the project root. Both set, or neither set, fails validation. |
 | `triggers` | yes | | One or more spawn predicates. See below. |
 
 A trigger entry is one of:
@@ -220,7 +221,7 @@ The default issue label is `orkie`. The default agent command is OpenCode's ACP 
 - [ ] The operator can reject the interactive offer. On reject, no config is created and the orchestration loop does not start.
 - [ ] On accept, Orkie writes the default scaffold in this feature.
 - [ ] Invalid or incomplete config fails bootstrap before the continuous loop starts. Errors name the problem. The default offer applies only when config is absent, not when it is present and broken.
-- [ ] Agent `role` is project-defined display/metadata. Exactly one of `prompt` or `prompt_file` is required. When `babysitter.enabled` is false, other babysitter fields are ignored. The default scaffold is only a starting template.
+- [ ] Agent `role` is project-defined display/metadata. Exactly one of `prompt` or `prompt_file` is required. `prompt_file` paths resolve under `prompt_root` (default project root) and must stay inside the project root. When `babysitter.enabled` is false, other babysitter fields are ignored. The default scaffold is only a starting template.
 - [ ] Tokens and secrets are not read from `.orkie/`. `GITHUB_TOKEN` is required. Required connector privileges and interactive vs non-interactive handling are defined in [03-connector-interface-and-github.md](03-connector-interface-and-github.md#required-privileges).
 - [ ] `poll_interval_seconds` defaults to 60 and must be an integer greater than or equal to 15. `dashboard_port` defaults to 8765.
 - [ ] Optional `connector.repo` is `owner/name`. When it is omitted, repository resolution follows [03-connector-interface-and-github.md](03-connector-interface-and-github.md).
