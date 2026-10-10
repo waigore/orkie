@@ -8,7 +8,7 @@ The full ADR set must:
 
 1. **Satisfy all features** — every numbered feature in [`spec/feature/`](../feature/) is covered by one or more ADRs (see [Feature coverage](#feature-coverage)).
 2. **Inform component design** — together, ADRs are detailed and consistent enough to design packages, modules, flows, states, and sequences without inventing unstated architecture.
-3. **Cover the tech stack** — approved dependencies, stdlib-first choices, and explicitly rejected libraries appear in the set (especially [002](002-1-tech-stack-and-dependencies.md)).
+3. **Cover the tech stack** — approved dependencies, stdlib-first choices, explicitly rejected libraries, and offline test / coverage standards appear in the set (especially [002](002-1-tech-stack-and-dependencies.md)).
 
 ## General principles
 
@@ -65,18 +65,18 @@ Anything under `spec/adr/*.md` (except history links) is current — link those 
 
 | ID | Title | Status | Features |
 |----|-------|--------|----------|
-| [001](001-1-process-model-and-module-layout.md) | Process model and module layout | Accepted | All; esp. 05, 08 |
+| [001](001-2-process-model-and-module-layout.md) | Process model and module layout | Accepted | All; esp. 05, 08 |
 | [002](002-1-tech-stack-and-dependencies.md) | Tech stack and dependencies | Accepted | All |
-| [003](003-1-config-load-and-bootstrap-sequence.md) | Config load and bootstrap sequence | Accepted | 01, 03, 08 |
-| [004](004-1-local-state-format-and-process-lock.md) | Local state format and process lock | Accepted | 02, 08 |
-| [005](005-1-connector-interface-and-github-client.md) | Connector interface and GitHub client | Accepted | 03, 06, 07 |
-| [006](006-acp-agent-runtime.md) | ACP agent runtime | Accepted | 04, 05 |
-| [007](007-1-orchestration-cycle-and-claim-session-state-machine.md) | Orchestration cycle and claim/session state machine | Accepted | 05, 02, 06 |
+| [003](003-2-config-load-and-bootstrap-sequence.md) | Config load and bootstrap sequence | Accepted | 01, 03, 08 |
+| [004](004-2-local-state-format-and-process-lock.md) | Local state format and process lock | Accepted | 02, 08 |
+| [005](005-2-connector-interface-and-github-client.md) | Connector interface and GitHub client | Accepted | 03, 06, 07 |
+| [006](006-1-acp-agent-runtime.md) | ACP agent runtime | Accepted | 04, 05 |
+| [007](007-2-orchestration-cycle-and-claim-session-state-machine.md) | Orchestration cycle and claim/session state machine | Accepted | 05, 02, 06 |
 | [008](008-1-git-worktrees.md) | Git worktrees | Accepted | 05, 07 |
-| [009](009-1-intake-poll-and-delta.md) | Intake poll and delta | Accepted | 06, 02 |
-| [010](010-1-pr-babysitter-lifecycle.md) | PR babysitter lifecycle | Accepted | 07, 05 |
-| [011](011-1-cli-signals-and-process-lifecycle.md) | CLI, signals, and process lifecycle | Accepted | 08, 01 |
-| [012](012-1-dashboard-stack-and-control-api.md) | Dashboard stack and control API | Accepted | 08, 04 |
+| [009](009-2-intake-poll-and-delta.md) | Intake poll and delta | Accepted | 06, 02 |
+| [010](010-2-pr-babysitter-lifecycle.md) | PR babysitter lifecycle | Accepted | 07, 05 |
+| [011](011-2-cli-signals-and-process-lifecycle.md) | CLI, signals, and process lifecycle | Accepted | 08, 01 |
+| [012](012-2-dashboard-stack-and-control-api.md) | Dashboard stack and control API | Accepted | 08, 04 |
 
 ### Feature coverage
 

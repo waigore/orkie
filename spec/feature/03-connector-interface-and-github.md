@@ -2,9 +2,9 @@
 
 ## Description
 
-Platform access goes through an abstract connector interface that bridges Orkie's local task state with an external task and issue tracker. GitHub is the first concrete implementation. The GitHub connector reads intake issues (status, labels, and the fields needed for prompts), pull requests, and repository metadata needed for intake and the optional PR babysitter. It can create a label and add or remove issue labels so Orkie can claim work visibly (see [05-agent-orchestration.md](05-agent-orchestration.md)). It does not read or write issue comments in v1.
+Platform access goes through an abstract connector interface that bridges Orkie's local task state with an external task and issue tracker. GitHub is the first concrete implementation. The GitHub connector reads intake issues (status, labels, and the fields needed for prompts), pull requests, and repository metadata needed for intake and the optional PR babysitter. It does not read or write issue comments in v1. It does not create, add, or remove labels. Claims stay in local state (see [05-agent-orchestration.md](05-agent-orchestration.md)).
 
-The GitHub token is the `GITHUB_TOKEN` environment variable. It is never read from `.orkie/`. Bootstrap behavior for missing required privileges depends on interactive vs non-interactive mode (see [Required privileges](#required-privileges)). Any other privilege gap produces a warning, and bootstrap may continue. The repository is `connector.repo` when set, otherwise the `origin` remote when that remote is GitHub, otherwise the only GitHub remote.
+The GitHub token is the `GITHUB_TOKEN` environment variable. It is never read from `.orkie/`. Bootstrap behavior for missing required privileges depends on interactive vs non-interactive mode (see [Required privileges](#required-privileges)). Any other privilege gap produces a warning, and bootstrap may continue. In v1 the warn-only set is empty: the probe checks only the required rows below. The repository is `connector.repo` when set, otherwise the `origin` remote when that remote is GitHub, otherwise the only GitHub remote.
 
 ## Use cases
 
@@ -21,17 +21,15 @@ Required privileges are those without which Orkie cannot perform a feature that 
 | Capability | When required | Source features |
 |------------|---------------|-----------------|
 | Token present (`GITHUB_TOKEN` non-empty) | Always (GitHub connector) | This feature; [01-project-bootstrap-and-config.md](01-project-bootstrap-and-config.md) |
+| Read the repository | Always | This feature |
 | Read open issues (number, title, body, URL, state, labels) | Always | [06-work-intake-and-issue-monitoring.md](06-work-intake-and-issue-monitoring.md), [05-agent-orchestration.md](05-agent-orchestration.md) |
-| Add issue label | Always (claim) | [05-agent-orchestration.md](05-agent-orchestration.md) |
-| Remove issue label | Always (release claim) | [05-agent-orchestration.md](05-agent-orchestration.md) |
-| Create repository label | Always when the configured `claim_label` does not already exist | [01-project-bootstrap-and-config.md](01-project-bootstrap-and-config.md), [05-agent-orchestration.md](05-agent-orchestration.md) |
 | Read open pull requests (number, title, URL, head, base, draft, mergeable state) | Only when `babysitter.enabled` is true | [07-pr-babysitter.md](07-pr-babysitter.md) |
 
 **Interactive bootstrap:** If a required privilege is missing, Orkie reports each missing capability and prompts the operator (for example retry after fixing the token, or abort). It does not continue into the orchestration loop until requirements are met or the operator aborts.
 
 **Non-interactive bootstrap:** If a required privilege is missing, bootstrap fails hard with a message that names each missing capability. No prompt.
 
-**Warn-only:** Any other privilege Orkie probes that is not in the table above produces a warning naming the gap. Bootstrap may continue after that warning in both modes.
+**Warn-only:** Any other privilege Orkie probes that is not in the table above produces a warning naming the gap. Bootstrap may continue after that warning in both modes. v1 probes no warn-only capability, so this set is empty unless a later feature adds a probe.
 
 When a new feature needs tracker access, add a row here and cite that feature so this table stays the single checklist for bootstrap verification.
 
@@ -40,7 +38,7 @@ When a new feature needs tracker access, add a row here and cite that feature so
 ### Abstract connector bridges task state and tracker
 
 **Given** Orkie needs issue and repository data for a project  
-**When** intake or orchestration requests tracker data or a label change  
+**When** intake or orchestration requests tracker data  
 **Then** calls go through the connector interface rather than embedding GitHub-specific APIs in the orchestrator core
 
 ### GitHub connector reads intake issues
@@ -55,18 +53,6 @@ When a new feature needs tracker access, add a row here and cite that feature so
 **When** orchestration asks for open pull requests  
 **Then** the connector returns each open PR's number, title, URL, head branch, base branch, draft flag, and mergeable state
 
-### GitHub connector applies and removes the claim label
-
-**Given** orchestration needs to claim or unclaim an issue  
-**When** it asks the connector to add or remove the configured claim label  
-**Then** the GitHub connector updates that issue's labels
-
-### GitHub connector creates the claim label when it is missing
-
-**Given** the resolved claim label does not exist in the repository  
-**When** bootstrap ensures the label exists  
-**Then** the connector creates it. If creation is denied, that is a missing required privilege and follows [Required privileges](#required-privileges)
-
 ### Token comes from `GITHUB_TOKEN`
 
 **Given** Orkie is bootstrapping a GitHub-backed project  
@@ -75,7 +61,7 @@ When a new feature needs tracker access, add a row here and cite that feature so
 
 ### Required tracker access follows interactive rules
 
-**Given** a token that cannot read issues, cannot add or remove labels, cannot create a missing claim label, or cannot read pull requests while the babysitter is enabled  
+**Given** a token that cannot read the repository, cannot read issues, or cannot read pull requests while the babysitter is enabled  
 **When** bootstrap verifies connector privileges  
 **Then** interactive mode prompts with each missing required capability named; non-interactive mode fails hard with the same names
 
@@ -83,7 +69,7 @@ When a new feature needs tracker access, add a row here and cite that feature so
 
 **Given** a token that is missing some other permission Orkie does not require for the enabled features  
 **When** bootstrap runs connector privilege verification  
-**Then** Orkie emits a clear warning naming those capabilities. Bootstrap may continue after that warning
+**Then** Orkie emits a clear warning naming those capabilities. Bootstrap may continue after that warning. With the v1 probe, no such extra capability is checked
 
 ### Resolve the GitHub repository
 
@@ -111,12 +97,12 @@ When a new feature needs tracker access, add a row here and cite that feature so
 
 ## Acceptance criteria
 
-- [ ] The connector interface covers open non-PR issues (number, title, body, URL, state, labels), label create, label add, label remove, open pull requests (number, title, URL, head branch, base branch, draft, mergeable state), and repository identity (`owner/name`). Issue comments are out of scope for v1.
+- [ ] The connector interface covers open non-PR issues (number, title, body, URL, state, labels), open pull requests (number, title, URL, head branch, base branch, draft, mergeable state), and repository identity (`owner/name`). Issue comments are out of scope for v1. Label create, add, and remove are out of scope.
 - [ ] The GitHub connector is a concrete implementation of that interface.
 - [ ] Orchestration and intake depend on the interface. GitHub SDK types do not leak into core modules.
 - [ ] GitHub authentication uses `GITHUB_TOKEN`.
 - [ ] [Required privileges](#required-privileges) is the checklist for bootstrap verification, with citations kept current when features change.
 - [ ] Missing required privileges: interactive bootstrap prompts and names each gap; non-interactive bootstrap fails hard and names each gap.
-- [ ] Other insufficient privileges produce a warning that names the capability gaps. Bootstrap may continue after that warning.
+- [ ] Other insufficient privileges produce a warning that names the capability gaps. Bootstrap may continue after that warning. The v1 warn-only set is empty.
 - [ ] The repository is `connector.repo` when set, else a GitHub `origin`, else the sole GitHub remote. Ambiguous or missing remotes fail bootstrap and name `connector.repo`.
 - [ ] Non-GitHub connectors are out of scope for v1 beyond the interface contract. GitHub alone is enough to run Orkie.

@@ -1,10 +1,8 @@
-# ADR 004: Local state format and process lock
-
 ## Status
 
-Accepted
+Superseded by [004-2](../004-2-local-state-format-and-process-lock.md).
 
-Supersedes [004](superseded/004-local-state-format-and-process-lock.md).
+Supersedes [004](004-local-state-format-and-process-lock.md).
 
 ## Context
 
@@ -53,7 +51,7 @@ Append with flush. Redact any substring equal to the current `GITHUB_TOKEN` valu
 
 ### Worktrees directory
 
-`worktrees/<session_id>/` under the same state root ([008-1](008-1-git-worktrees.md)). Not a JSON document. The owning git directory is discovered from the worktree, not stored here.
+`worktrees/<session_id>/` under the same state root ([008-1](../008-1-git-worktrees.md)). Not a JSON document. The owning git directory is discovered from the worktree, not stored here.
 
 ## Reasoning
 

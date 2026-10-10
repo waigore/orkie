@@ -1,10 +1,8 @@
-# ADR 007: Orchestration cycle and claim/session state machine
-
 ## Status
 
-Accepted
+Superseded by [007-2](../007-2-orchestration-cycle-and-claim-session-state-machine.md).
 
-Supersedes [007](superseded/007-orchestration-cycle-and-claim-session-state-machine.md).
+Supersedes [007](007-orchestration-cycle-and-claim-session-state-machine.md).
 
 ## Context
 
@@ -107,4 +105,4 @@ On process start ([003-1](003-1-config-load-and-bootstrap-sequence.md) step 6), 
 - `orkie.orchestration` is the only module that applies or removes claim labels and decides spawns.
 - Dashboard kill calls orchestration, so label removal stays in this cycle's rules.
 - Offline tests drive a fake connector and a fake ACP through one cycle and assert label and session transitions.
-- Worktree create and remove bookend Working ([008-1](008-1-git-worktrees.md)).
+- Worktree create and remove bookend Working ([008-1](../008-1-git-worktrees.md)).

@@ -20,7 +20,7 @@ Use the **`git` CLI** via `subprocess` (`orkie.worktree`). No pygit2/GitPython i
 
 `~/.local/share/orkie/<owner>--<repo>/worktrees/<session_id>/`
 
-(same state root as [004-1](004-1-local-state-format-and-process-lock.md)).
+(same state root as [004-2](004-2-local-state-format-and-process-lock.md)).
 
 ### Base
 
@@ -43,7 +43,7 @@ Removal reads the owning git directory from the worktree itself. A later process
 
 ### Agent cwd
 
-ACP child `cwd` is the worktree path ([006](006-acp-agent-runtime.md)). Orkie does not share the primary project checkout as a writable agent workspace for sessions.
+ACP child `cwd` is the worktree path ([006-1](006-1-acp-agent-runtime.md)). Orkie does not share the primary project checkout as a writable agent workspace for sessions.
 
 ## Reasoning
 
@@ -67,5 +67,5 @@ ACP child `cwd` is the worktree path ([006](006-acp-agent-runtime.md)). Orkie do
 ## Consequences for design
 
 - `orkie.orchestration` calls `worktree.create` then `acp.spawn`, and `worktree.remove` on every terminal transition.
-- Shutdown walks session worktree paths and removes them after ACP terminate ([011-1](011-1-cli-signals-and-process-lifecycle.md)).
+- Shutdown walks session worktree paths and removes them after ACP delete ([011-2](011-2-cli-signals-and-process-lifecycle.md)). Startup removes leftovers the same way.
 - Tests can stub `orkie.worktree` to temp dirs without a real git repo when unit-testing orchestration alone; integration tests may use a temp git repo.

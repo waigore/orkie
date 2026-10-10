@@ -2,7 +2,7 @@
 
 ## Status
 
-Superseded by [007-1](../007-1-orchestration-cycle-and-claim-session-state-machine.md).
+Superseded by [007-1](007-1-orchestration-cycle-and-claim-session-state-machine.md).
 
 ## Context
 

@@ -1,8 +1,6 @@
-# ADR 006: ACP agent runtime
-
 ## Status
 
-Accepted
+Superseded by [006-1](../006-1-acp-agent-runtime.md).
 
 ## Context
 
@@ -55,7 +53,7 @@ Start agents in a new session/process group where the platform allows so shutdow
 
 ## Reasoning
 
-- In-tree ACP client matches “any ACP-compatible agent” and avoids vendor lock-in ([002-1](002-1-tech-stack-and-dependencies.md)).
+- In-tree ACP client matches “any ACP-compatible agent” and avoids vendor lock-in ([002-1](../002-1-tech-stack-and-dependencies.md)).
 - Full permissions match feature 04; Orkie's job is orchestration, not sandboxing the coding agent.
 - Clear interrupt vs kill semantics keep claim labels stable during cooperative cancel.
 - UUID4 session ids are an ADR-level choice; the features require only a generated id that is unique per spawn.
@@ -74,4 +72,4 @@ Start agents in a new session/process group where the platform allows so shutdow
 - `orkie.orchestration` calls `acp.spawn` / `interrupt` / `kill` and owns claim release on kill/exit.
 - Live handles live in an in-memory session table keyed by `session_id`; disk `working` is informational after restart (always cleared on start).
 - Tests fake the ACP client at the `orkie.acp` boundary.
-- Worktree path is an input to spawn; ACP module does not create worktrees ([008-1](008-1-git-worktrees.md)).
+- Worktree path is an input to spawn; ACP module does not create worktrees ([008-1](../008-1-git-worktrees.md)).

@@ -1,10 +1,8 @@
-# ADR 003: Config load and bootstrap sequence
-
 ## Status
 
-Accepted
+Superseded by [003-2](../003-2-config-load-and-bootstrap-sequence.md).
 
-Supersedes [003](superseded/003-config-load-and-bootstrap-sequence.md).
+Supersedes [003](003-config-load-and-bootstrap-sequence.md).
 
 ## Context
 

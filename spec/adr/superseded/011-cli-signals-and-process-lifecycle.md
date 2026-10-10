@@ -2,7 +2,7 @@
 
 ## Status
 
-Superseded by [011-1](../011-1-cli-signals-and-process-lifecycle.md).
+Superseded by [011-1](011-1-cli-signals-and-process-lifecycle.md).
 
 ## Context
 
@@ -39,7 +39,7 @@ parse args -> bootstrap ([003](003-config-load-and-bootstrap-sequence.md))
 
 1. Stop new intake cycles and new spawns.
 2. Dashboard controls fail closed; no v1 control starts work ([012](012-dashboard-stack-and-control-api.md)).
-3. Terminate ACP sessions ([006](../006-acp-agent-runtime.md)).
+3. Terminate ACP sessions ([006](006-acp-agent-runtime.md)).
 4. Wait up to **30 seconds** for termination and claim-label release; then kill remaining agent process groups. A second signal during the wait skips it and kills at once.
 5. Release issue claim labels still held; persist claims/sessions per feature 02 (failed label removal keeps local owner record, not working).
 6. Remove session worktrees ([008](008-git-worktrees.md)).

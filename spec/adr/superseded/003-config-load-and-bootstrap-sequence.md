@@ -2,7 +2,7 @@
 
 ## Status
 
-Superseded by [003-1](../003-1-config-load-and-bootstrap-sequence.md).
+Superseded by [003-1](003-1-config-load-and-bootstrap-sequence.md).
 
 ## Context
 

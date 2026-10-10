@@ -2,7 +2,7 @@
 
 | Features | ADRs |
 |----------|------|
-| [01](../feature/01-project-bootstrap-and-config.md), [03](../feature/03-connector-interface-and-github.md), [08](../feature/08-cli-and-dashboard.md) | [002](../adr/002-1-tech-stack-and-dependencies.md), [003](../adr/003-1-config-load-and-bootstrap-sequence.md) |
+| [01](../feature/01-project-bootstrap-and-config.md), [03](../feature/03-connector-interface-and-github.md), [08](../feature/08-cli-and-dashboard.md) | [002](../adr/002-1-tech-stack-and-dependencies.md), [003](../adr/003-2-config-load-and-bootstrap-sequence.md) |
 
 Canonical product schema: feature [01](../feature/01-project-bootstrap-and-config.md). This document is the implementable validation shape, defaults, and precedence.
 
@@ -25,7 +25,6 @@ Highest wins:
 | Dashboard port | CLI `--port` → `dashboard_port` in YAML → default `8765` |
 | Repository identity | `connector.repo` → GitHub `origin` remote → sole GitHub remote → fail (tell operator to set `connector.repo`) |
 | GitHub token | Environment `GITHUB_TOKEN` only (required non-empty for GitHub connector) |
-| Claim label name | YAML `claim_label` → default `orkie:claimed` |
 | Poll interval | YAML `poll_interval_seconds` → default `60` (still must be ≥ 15) |
 | Session caps | YAML per-agent / global → default `1` each |
 | Agent command / prompt | YAML only (no Orkie role catalog) |
@@ -41,7 +40,6 @@ connector:
 poll_interval_seconds: 60   # optional
 issue_labels:
   - orkie
-claim_label: orkie:claimed  # optional
 max_concurrent_sessions: 1  # optional
 dashboard_port: 8765        # optional
 agents:
@@ -69,8 +67,7 @@ babysitter:
 | `connector` | yes | — | Object; see below |
 | `poll_interval_seconds` | no | `60` | Integer ≥ `15` |
 | `issue_labels` | yes | — | Non-empty list of unique label names; each non-empty, ≤ 50 chars |
-| `claim_label` | no | `orkie:claimed` | Non-empty, ≤ 50 chars; must not appear in `issue_labels` |
-| `max_concurrent_sessions` | no | `1` | Integer ≥ `1` |
+| `max_concurrent_sessions` | no | `1` | Integer ≥ `1`. Ceiling on working issue sessions |
 | `dashboard_port` | no | `8765` | Integer `1`–`65535` |
 | `agents` | yes | — | Non-empty list of agent objects |
 | `babysitter` | no | `{enabled: false}` | Object; see below |
@@ -148,7 +145,7 @@ room(agent) = min(
 )
 ```
 
-Babysitter sessions do not count. Failed spawns do not count. Defaults 1/1 mean at most one issue session process-wide.
+Babysitter sessions do not count. Failed spawns do not count. A saved claim with no working session does not count. Defaults 1/1 mean at most one working issue session process-wide.
 
 ## Default scaffold
 
@@ -161,7 +158,6 @@ connector:
 poll_interval_seconds: 60
 issue_labels:
   - orkie
-claim_label: orkie:claimed
 max_concurrent_sessions: 1
 dashboard_port: 8765
 agents:

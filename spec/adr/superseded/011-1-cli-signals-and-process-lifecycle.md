@@ -1,10 +1,8 @@
-# ADR 011: CLI, signals, and process lifecycle
-
 ## Status
 
-Accepted
+Superseded by [011-2](../011-2-cli-signals-and-process-lifecycle.md).
 
-Supersedes [011](superseded/011-cli-signals-and-process-lifecycle.md).
+Supersedes [011](011-cli-signals-and-process-lifecycle.md).
 
 ## Context
 
@@ -15,7 +13,7 @@ Feature [08](../feature/08-cli-and-dashboard.md) defines the `orkie` command, co
 ### CLI
 
 - Console script: `orkie`.
-- Library: **stdlib `argparse`** ([002-1](002-1-tech-stack-and-dependencies.md)).
+- Library: **stdlib `argparse`** ([002-1](../002-1-tech-stack-and-dependencies.md)).
 - Arguments:
   - optional positional `project` directory (default: cwd)
   - optional `--port N` overriding `dashboard_port`
@@ -44,7 +42,7 @@ parse args -> bootstrap ([003-1](003-1-config-load-and-bootstrap-sequence.md))
 3. Terminate ACP sessions ([006](006-acp-agent-runtime.md)).
 4. Wait up to **30 seconds** for those processes to exit, then kill remaining agent process groups. A second signal during the wait skips it and kills at once.
 5. Remove the claim label for each issue session just stopped. A failed removal leaves the label on the issue. There is no local claim record to update.
-6. Remove session worktrees ([008-1](008-1-git-worktrees.md)).
+6. Remove session worktrees ([008-1](../008-1-git-worktrees.md)).
 7. Shut down the dashboard HTTP server and join its thread.
 8. Flush sessions and spawn failures; release the process-lock flock ([004-1](004-1-local-state-format-and-process-lock.md)).
 9. Exit **0** if every label removal in step 5 succeeded; **1** if any failed.

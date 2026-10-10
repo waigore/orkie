@@ -2,7 +2,7 @@
 
 ## Status
 
-Superseded by [005-1](../005-1-connector-interface-and-github-client.md).
+Superseded by [005-1](005-1-connector-interface-and-github-client.md).
 
 ## Context
 

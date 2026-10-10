@@ -2,7 +2,7 @@
 
 ## Status
 
-Superseded by [012-1](../012-1-dashboard-stack-and-control-api.md).
+Superseded by [012-1](012-1-dashboard-stack-and-control-api.md).
 
 ## Context
 

@@ -2,9 +2,9 @@
 
 | Features | ADRs |
 |----------|------|
-| [01](../feature/01-project-bootstrap-and-config.md), [03](../feature/03-connector-interface-and-github.md), [08](../feature/08-cli-and-dashboard.md) | [011](../adr/011-1-cli-signals-and-process-lifecycle.md), [012](../adr/012-1-dashboard-stack-and-control-api.md) |
+| [01](../feature/01-project-bootstrap-and-config.md), [03](../feature/03-connector-interface-and-github.md), [08](../feature/08-cli-and-dashboard.md) | [011](../adr/011-2-cli-signals-and-process-lifecycle.md), [012](../adr/012-2-dashboard-stack-and-control-api.md) |
 
-Operator surfaces: the CLI and the loopback dashboard. No SPA, no auth beyond loopback, no follow-up prompt box in v1.
+Operator surfaces: the CLI and the loopback dashboard. No SPA, no auth beyond loopback, no follow-up prompt box in v1. Permission grants are lines in the agent log, not a separate page.
 
 ---
 
@@ -25,7 +25,7 @@ No subcommands. Console script entry: `orkie` → `orkie.cli:main`.
 
 ### Interactive detection
 
-Interactive iff `stdin` and `stdout` are both TTYs. Otherwise non-interactive (never prompts).
+Interactive iff `stdin` and `stdout` are both TTYs. Otherwise non-interactive (never prompts). No override flag.
 
 ### Output
 
@@ -36,8 +36,9 @@ Interactive iff `stdin` and `stdout` are both TTYs. Otherwise non-interactive (n
 | Required privilege gaps (interactive) | stderr + prompt | List each missing capability; offer retry after fix or abort |
 | Live lock refusal | stderr | Names `owner/name` and that another Orkie is running |
 | Port in use | stderr | Names `127.0.0.1:<port>` |
-| Three-strike claim release | stderr | Warning naming issue number and agent |
+| Three-strike claim drop | stderr | Warning naming issue number and agent |
 | Intake fetch errors (running) | stderr | Error text; dashboard also shows last error |
+| Worktree removal failure | stderr | Path and error; does not change the exit code |
 | Warn-only privilege gaps | stderr | None expected in v1 (empty warn set) |
 
 ### Interactive prompts
@@ -46,26 +47,40 @@ Interactive iff `stdin` and `stdout` are both TTYs. Otherwise non-interactive (n
 |--------|------|--------|--------|
 | Create default `.orkie/config.yaml`? | Config missing + interactive | Write feature-01 scaffold; continue bootstrap | Exit non-zero; write nothing |
 | Retry privilege check / abort? | Required privilege missing + interactive | Re-probe after operator fixes token/perms; abort exits | — |
+| Shutdown choice | Interactive Ctrl-C and at least one agent session is live | Explicit `g` → graceful; explicit `n` → normal. Any other input asks again | — |
 
-Non-interactive: both situations are hard failures with no prompt.
+The shutdown prompt is:
+
+```text
+Live agent sessions are still running. Shut down how?
+  [g] graceful — ask agents to wrap up (20s), then delete sessions
+  [n] normal — delete sessions now
+```
+
+Signal handlers only set flags. The main thread prints this prompt and reads the answer. A second SIGINT or SIGTERM during the prompt SIGKILLs remaining agent process groups.
+
+Non-interactive: missing config and missing privileges are hard failures with no prompt. SIGINT and SIGTERM are normal shutdown with no prompt.
 
 ### Signals
 
 | Signal | Effect |
 |--------|--------|
-| First SIGINT or SIGTERM | Start graceful shutdown |
-| Second during grace | Immediate kill of remaining agent process groups |
+| SIGTERM | Normal shutdown. No prompt |
+| SIGINT, non-interactive | Normal shutdown. No prompt |
+| SIGINT, interactive, no live agent session | Normal shutdown. No prompt |
+| SIGINT, interactive, live agent session | Main thread prompts for graceful or normal |
+| Second SIGINT or SIGTERM during the prompt or the graceful 20 second wait | SIGKILL remaining agent process groups |
 
 ### Exit codes
 
 | Code | Meaning |
 |------|---------|
-| 0 | Clean exit after shutdown with every stopped issue-session claim label removed; or clean paths that define success |
-| non-zero | Bootstrap failure; or shutdown where at least one claim-label removal failed (exit **1**) |
+| 0 | Shutdown finished local cleanup. Claims remain. Session records are deleted. A worktree that could not be removed is logged and does not change this code |
+| non-zero | Bootstrap failure (invalid config, missing required privilege, lock held, port in use, corrupt state JSON, and the other bootstrap failures) |
 
 ### systemd
 
-Documented sample unit lives in feature [08](../feature/08-cli-and-dashboard.md). Not shipped in the Orkie repo. Always non-interactive.
+Documented sample unit lives in feature [08](../feature/08-cli-and-dashboard.md). Not shipped in the Orkie repo. Always non-interactive, so stop is normal shutdown.
 
 ---
 
@@ -101,7 +116,7 @@ No authentication UI.
 | GET | `/agents` | Agent view |
 | GET | `/issues` | Issue view |
 | POST | `/sessions/<session_id>/interrupt` | Cancel current ACP turn |
-| POST | `/sessions/<session_id>/kill` | Terminate session (+ release issue claim) |
+| POST | `/sessions/<session_id>/kill` | Delete session and drop an issue claim |
 
 Controls are HTML forms (`method="post"`). CSRF: none (loopback-only). After POST: `303` redirect to `Referer` if same-origin path is `/agents` or `/issues`, else `/agents`.
 
@@ -133,11 +148,11 @@ No session table on the index.
 
 ## Page: Agent view (`GET /agents`)
 
-**Purpose:** Working sessions, logs, spawn failures, interrupt/kill.
+**Purpose:** Working sessions, logs (including permission grants), spawn failures, interrupt/kill.
 
 ### Working sessions table
 
-One row per live working session (from in-memory table ∩ disk `working` true; prefer in-memory handles as source of truth while running).
+One row per live session in the in-memory table.
 
 | Column | Source |
 |--------|--------|
@@ -156,6 +171,7 @@ For each working session (or a selected session via in-page anchor `#session-<id
 
 - Read `logs/<agent_id>.log`
 - Show lines containing `session_id=<session_id>` (last 200 lines after filter, newest at bottom)
+- Those lines include `permission grant` and `permission cancelled`
 - Empty: “No log lines for this session yet.”
 
 ### Spawn failures section
@@ -171,7 +187,7 @@ List records from `spawn_failures` for all agents (newest first).
 | Error | `error` |
 | At | `at` |
 
-Highlight rows with `released == true` as warnings (“claim released after three spawn failures” for issues).
+Highlight rows with `released == true` as warnings (“local claim dropped after three spawn failures” for issues).
 
 **Empty state:** “No spawn failures recorded.”
 
@@ -179,8 +195,8 @@ Highlight rows with `released == true` as warnings (“claim released after thre
 
 | Control | Label | Effect |
 |---------|-------|--------|
-| Interrupt | “Interrupt” | POST interrupt; claim stays; session stays working |
-| Kill | “Kill” | POST kill; issue claim removed; row disappears on refresh |
+| Interrupt | “Interrupt” | POST interrupt; claim stays; session stays working; a pending permission is logged as `permission cancelled` |
+| Kill | “Kill” | POST kill; ACP delete path; issue claim dropped; row disappears on refresh. Babysitter kill drops no issue claim |
 
 No follow-up prompt field.
 
@@ -188,7 +204,7 @@ No follow-up prompt field.
 
 ## Page: Issue view (`GET /issues`)
 
-**Purpose:** Intake claim status for operators.
+**Purpose:** Local claim status for operators.
 
 ### Header
 
@@ -196,29 +212,29 @@ No follow-up prompt field.
 |---------|---------|
 | Repository | `owner/name` |
 | Start checkout | Branch name or `detached` (in-memory from bootstrap) |
-| Claim label | Config `claim_label` (display only) |
 
 ### Claimed intake
 
-Intake issues from the latest snapshot whose labels include `claim_label`.
+Intake issues from the latest snapshot that have a row in `claims`.
 
 | Column | Content |
 |--------|---------|
 | Number | Issue number (link to `url` if present) |
 | Title | Title |
-| Labels | Comma-separated |
-| Owner | If a working session is bound to this issue: `agent_id` + `session_id`; else “labeled, not working” |
-| Warning | If spawn-failure for this issue has `released == true` and still relevant (no later successful spawn): show three-strike warning |
+| Labels | Comma-separated project labels |
+| Owner | Claim `agent_id`. When a live session is bound to this issue, also that `session_id`. Otherwise “queued” |
+| Warning | If any spawn-failure row for this issue has `attempt == 3`: three-strike warning |
 
 ### Unclaimed intake
 
-Intake issues from the snapshot without `claim_label`.
+Intake issues from the snapshot with no claim row. After a three-strike drop the issue appears here.
 
 | Column | Content |
 |--------|---------|
 | Number | Issue number (link) |
 | Title | Title |
 | Labels | Comma-separated |
+| Warning | If any spawn-failure row for this issue has `attempt == 3`: three-strike warning (“local claim dropped after three spawn failures”) |
 
 ### Empty states
 
@@ -229,7 +245,7 @@ Babysitter PRs are **not** listed on this page (agent view only).
 
 ### CTAs
 
-None for claim/release (orchestration owns labels). Optional link “Open agent view” → `/agents`. Refresh is the browser reload.
+None for claim or drop (orchestration owns claims). Optional link “Open agent view” → `/agents`. Refresh is the browser reload.
 
 ---
 

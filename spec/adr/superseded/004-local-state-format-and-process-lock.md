@@ -2,7 +2,7 @@
 
 ## Status
 
-Superseded by [004-1](../004-1-local-state-format-and-process-lock.md).
+Superseded by [004-1](004-1-local-state-format-and-process-lock.md).
 
 ## Context
 

@@ -1,10 +1,8 @@
-# ADR 009: Intake poll and delta
-
 ## Status
 
-Accepted
+Superseded by [009-2](../009-2-intake-poll-and-delta.md).
 
-Supersedes [009](superseded/009-intake-poll-and-delta.md).
+Supersedes [009](009-intake-poll-and-delta.md).
 
 ## Context
 

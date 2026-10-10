@@ -1,14 +1,12 @@
-# ADR 012: Dashboard stack and control API
-
 ## Status
 
-Accepted
+Superseded by [012-2](../012-2-dashboard-stack-and-control-api.md).
 
-Supersedes [012](superseded/012-dashboard-stack-and-control-api.md).
+Supersedes [012](012-dashboard-stack-and-control-api.md).
 
 ## Context
 
-Feature [08](../feature/08-cli-and-dashboard.md) requires a loopback web UI with agent and issue views, log display, spawn-failure visibility, and interrupt/kill controls. Feature [04](../feature/04-acp-agent-runtime.md) defines ACP interrupt vs kill. Design needs an HTTP stack, page model, and control API without a heavy web framework ([002-1](002-1-tech-stack-and-dependencies.md)).
+Feature [08](../feature/08-cli-and-dashboard.md) requires a loopback web UI with agent and issue views, log display, spawn-failure visibility, and interrupt/kill controls. Feature [04](../feature/04-acp-agent-runtime.md) defines ACP interrupt vs kill. Design needs an HTTP stack, page model, and control API without a heavy web framework ([002-1](../002-1-tech-stack-and-dependencies.md)).
 
 ## Decision
 
@@ -26,7 +24,7 @@ Feature [08](../feature/08-cli-and-dashboard.md) requires a loopback web UI with
 |------|------|
 | `GET /` | Index linking to the two views |
 | `GET /agents` | Agent view: working sessions (config id, name, session id, issue or PR, working), logs from `logs/<agent_id>.log` filtered by session markers, spawn failures |
-| `GET /issues` | Issue view: repo name; base branch or `detached` from memory ([008-1](008-1-git-worktrees.md)); intake issues with the claim label, and the working session's agent and session id when one is working; intake issues without the label; three-strike warnings when a spawn-failure record says the label was removed |
+| `GET /issues` | Issue view: repo name; base branch or `detached` from memory ([008-1](../008-1-git-worktrees.md)); intake issues with the claim label, and the working session's agent and session id when one is working; intake issues without the label; three-strike warnings when a spawn-failure record says the label was removed |
 
 ### Control API
 

@@ -37,7 +37,7 @@ Store `worktree_path` on the session record when created.
 
 ### Agent cwd
 
-ACP child `cwd` is the worktree path ([006](../006-acp-agent-runtime.md)). Orkie does not share the primary project checkout as a writable agent workspace for sessions.
+ACP child `cwd` is the worktree path ([006](006-acp-agent-runtime.md)). Orkie does not share the primary project checkout as a writable agent workspace for sessions.
 
 ## Reasoning
 

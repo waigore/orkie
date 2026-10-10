@@ -2,7 +2,7 @@
 
 ## Status
 
-Superseded by [009-1](../009-1-intake-poll-and-delta.md).
+Superseded by [009-1](009-1-intake-poll-and-delta.md).
 
 ## Context
 

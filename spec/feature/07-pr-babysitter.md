@@ -4,9 +4,9 @@
 
 Orkie optionally runs one PR babysitter. It is turned on or off by `babysitter.enabled` in `.orkie/config.yaml`. When it is off, Orkie does not manage pull requests. When it is on, the babysitter is one config identity and at most one ACP session at a time (the babysitter limit). That session is bound to one selectable blocked pull request.
 
-**The orchestrator is hands-off on babysitter completion.** The babysitter agent may stop whenever it determines the bound PR work is done or no longer needs attention. Orkie does not stop a working babysitter because the bound PR changed state, including becoming merge-ready, closing, or merging. After the babysitter session is not working, if the spawn trigger still holds (at least one selectable blocked PR exists) and no babysitter session is active, orchestration may spawn a new babysitter session for the PR selected on that cycle. A PR that has failed to spawn three times in a row is skipped until a poll on which it is not selectable. The next lowest selectable PR is selected instead.
+**The orchestrator is hands-off on babysitter completion.** The babysitter agent may stop whenever it determines the bound PR work is done or no longer needs attention. Orkie does not stop a working babysitter because the bound PR changed state, including becoming merge-ready, closing, or merging. After the babysitter session is not working, if the spawn trigger still holds (at least one selectable blocked PR exists) and no babysitter session is active, orchestration may spawn a new babysitter session for the PR selected on that cycle. A PR that has failed to spawn three times in a row is skipped until a poll on which it is not selectable. The next lowest selectable PR is selected instead. That poll clears the skipped PR's spawn-failure rows.
 
-The babysitter does not take issue claims, does not use the claim label, and does not count against issue session caps. It uses ACP, full permissions, a config prompt, and its own git worktree. Connector data tells Orkie which PR to assign. The agent itself pushes and comments through its own tools. Orkie does not merge pull requests.
+The babysitter does not take a local issue claim and does not count against issue session caps. It uses ACP, the same implicit permission grants as other agents, a config prompt, and its own git worktree. Connector data tells Orkie which PR to assign. The agent itself pushes and comments through its own tools. Orkie does not merge pull requests.
 
 Worktrees follow the minimal policy in [05-agent-orchestration.md](05-agent-orchestration.md#worktrees).
 
@@ -62,8 +62,8 @@ Actors are defined in [users.md](users.md).
 ### Poll on the intake interval
 
 **Given** the babysitter is enabled  
-**When** the intake interval fires  
-**Then** orchestration refreshes open PR state through the connector on that same interval
+**When** the intake interval fires and the pull-request fetch succeeds  
+**Then** orchestration refreshes open PR state through the connector on that same interval. A failed issue fetch does not by itself skip this step
 
 ### Use connector PR data
 
@@ -75,35 +75,35 @@ Actors are defined in [users.md](users.md).
 
 **Given** the babysitter is spawned  
 **When** it runs  
-**Then** it uses ACP, receives its config identity and a new session id, gets the substituted prompt and full permissions, and uses its own git worktree
+**Then** it uses ACP, receives its config identity and a new session id, gets the substituted prompt and implicit permission grants, and uses its own git worktree
 
 ### Operator can kill the babysitter
 
 **Given** a babysitter session is working  
 **When** an operator kills it from the dashboard  
-**Then** the session stops via ACP and is not working. No issue claim is involved. A later poll may spawn a new session if a selectable blocked PR remains
+**Then** the session stops by the ACP delete path and is not working. No issue claim is involved. A later poll may spawn a new session if a selectable blocked PR remains
 
 ### Interrupt leaves the babysitter working
 
 **Given** a babysitter session is working  
 **When** an operator interrupts it from the dashboard  
-**Then** Orkie cancels the current ACP turn. The session stays working. No issue claim is involved
+**Then** Orkie cancels the current ACP turn and answers a pending permission as `permission cancelled` in the agent log. The session stays working. No issue claim is involved
 
-### Shutdown stops the babysitter
+### Shutdown stops the babysitter with the other sessions
 
 **Given** a babysitter session is working  
-**When** Orkie shuts down via SIGINT or SIGTERM  
-**Then** that session is terminated with other ACP sessions and is not left running
+**When** Orkie shuts down by normal or graceful mode  
+**Then** that session is ended by the same mode as other ACP sessions and is not left running. There is no issue claim to keep or drop
 
 ## Acceptance criteria
 
 - [ ] `babysitter.enabled` is the on/off control. When off, Orkie performs no PR lifecycle management.
 - [ ] When on, there is one babysitter config identity and at most one working session (the babysitter limit).
-- [ ] A session is bound to one selectable blocked PR: open, not draft, mergeable state known, and not `clean`. Ties go to the lowest PR number. Drafts are never selected. A PR with three consecutive spawn failures is skipped until a poll on which it is not selectable; the next lowest selectable PR is used.
+- [ ] A session is bound to one selectable blocked PR: open, not draft, mergeable state known, and not `clean`. Ties go to the lowest PR number. Drafts are never selected. A PR with three consecutive spawn failures is skipped until a poll on which it is not selectable; that poll clears its failures. The next lowest selectable PR is used.
 - [ ] The prompt receives only that PR's variables. A new PR assignment is a new session.
 - [ ] Merge-ready means open, not draft, and mergeable state `clean`. Orkie does not merge PRs.
-- [ ] The babysitter does not use the issue claim label and does not consume issue session caps.
+- [ ] The babysitter does not take a local issue claim and does not consume issue session caps.
 - [ ] The orchestrator does not stop the babysitter for PR state changes, including close or merge. Stopping is an agent (or kill/shutdown) decision. After the session is not working, Orkie may spawn again when a selectable blocked PR exists.
-- [ ] PR reads come from the connector ([03-connector-interface-and-github.md](03-connector-interface-and-github.md)).
-- [ ] The babysitter uses the ACP runtime, config identity, session identity, and a dedicated worktree ([04-acp-agent-runtime.md](04-acp-agent-runtime.md), [05-agent-orchestration.md](05-agent-orchestration.md#worktrees)).
-- [ ] Dashboard kill, interrupt, and process shutdown behave as in [08-cli-and-dashboard.md](08-cli-and-dashboard.md).
+- [ ] PR reads come from the connector ([03-connector-interface-and-github.md](03-connector-interface-and-github.md)). The babysitter step runs when that fetch succeeds, including on a cycle whose issue fetch failed.
+- [ ] The babysitter uses the ACP runtime, config identity, session identity, implicit permission grants, and a dedicated worktree ([04-acp-agent-runtime.md](04-acp-agent-runtime.md), [05-agent-orchestration.md](05-agent-orchestration.md#worktrees)).
+- [ ] Dashboard kill deletes only that session. Interrupt keeps it working. Process shutdown ends it with the other sessions, by the mode in [08-cli-and-dashboard.md](08-cli-and-dashboard.md).

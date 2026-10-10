@@ -41,7 +41,7 @@ Read companion docs as needed, then features in number order the first time. Lat
 2. [02-local-state.md](02-local-state.md) — per-user state tree and record fields
 3. [03-connector-interface-and-github.md](03-connector-interface-and-github.md) — connector, GitHub, privileges
 4. [04-acp-agent-runtime.md](04-acp-agent-runtime.md) — ACP sessions
-5. [05-agent-orchestration.md](05-agent-orchestration.md) — claim labels, caps, spawn, worktrees
+5. [05-agent-orchestration.md](05-agent-orchestration.md) — local claims, caps, spawn, worktrees
 6. [06-work-intake-and-issue-monitoring.md](06-work-intake-and-issue-monitoring.md) — intake poll and delta
 7. [07-pr-babysitter.md](07-pr-babysitter.md) — optional PR babysitter
 8. [08-cli-and-dashboard.md](08-cli-and-dashboard.md) — CLI, dashboard, shutdown

@@ -4,7 +4,7 @@ Design sits between product behavior and code. Features say what Orkie does. ADR
 
 ## Principles
 
-1. **Simple.** Prefer the fewest components, interactions, and integrations that still satisfy the features. Do not invent packages, knobs, or services beyond the ADR [001](../adr/001-1-process-model-and-module-layout.md) package map and the knobs required by feature [01](../feature/01-project-bootstrap-and-config.md).
+1. **Simple.** Prefer the fewest components, interactions, and integrations that still satisfy the features. Do not invent packages, knobs, or services beyond the ADR [001](../adr/001-2-process-model-and-module-layout.md) package map and the knobs required by feature [01](../feature/01-project-bootstrap-and-config.md).
 2. **No guesswork.** Every public function signature, JSON field, HTTP route, poll-cycle step, error path, and wire message needed to implement v1 is specified here or cited to a feature or ADR table. If something is missing, fix the design (or the owning feature/ADR) before coding.
 3. **Traceable.** Each design file lists owning features and ADRs. Component sections name the stories they satisfy. Do not restate full acceptance criteria; link to features. Do not reopen ADR alternatives.
 
@@ -61,18 +61,18 @@ Companion product docs: [vocabulary](../feature/vocabulary.md), [users](../featu
 
 | ADR | Design files |
 |-----|--------------|
-| [001 Process and modules](../adr/001-1-process-model-and-module-layout.md) | components, README |
+| [001 Process and modules](../adr/001-2-process-model-and-module-layout.md) | components, README |
 | [002 Tech stack](../adr/002-1-tech-stack-and-dependencies.md) | components, config, ui |
-| [003 Bootstrap](../adr/003-1-config-load-and-bootstrap-sequence.md) | sequences, components (`cli`, `config`), config |
-| [004 Local state](../adr/004-1-local-state-format-and-process-lock.md) | data, components (`state`) |
-| [005 Connector](../adr/005-1-connector-interface-and-github-client.md) | components (`connectors`) |
-| [006 ACP](../adr/006-acp-agent-runtime.md) | components (`acp`), sequences |
-| [007 Orchestration cycle](../adr/007-1-orchestration-cycle-and-claim-session-state-machine.md) | sequences, components (`orchestration`) |
+| [003 Bootstrap](../adr/003-2-config-load-and-bootstrap-sequence.md) | sequences, components (`cli`, `config`), config |
+| [004 Local state](../adr/004-2-local-state-format-and-process-lock.md) | data, components (`state`) |
+| [005 Connector](../adr/005-2-connector-interface-and-github-client.md) | components (`connectors`) |
+| [006 ACP](../adr/006-1-acp-agent-runtime.md) | components (`acp`), sequences |
+| [007 Orchestration cycle](../adr/007-2-orchestration-cycle-and-claim-session-state-machine.md) | sequences, components (`orchestration`) |
 | [008 Worktrees](../adr/008-1-git-worktrees.md) | components (`worktree`), data |
-| [009 Intake](../adr/009-1-intake-poll-and-delta.md) | components (`intake`), sequences, data |
-| [010 Babysitter](../adr/010-1-pr-babysitter-lifecycle.md) | sequences, components (`orchestration`) |
-| [011 CLI / signals](../adr/011-1-cli-signals-and-process-lifecycle.md) | ui, sequences, components (`cli`) |
-| [012 Dashboard](../adr/012-1-dashboard-stack-and-control-api.md) | ui, components (`dashboard`) |
+| [009 Intake](../adr/009-2-intake-poll-and-delta.md) | components (`intake`), sequences, data |
+| [010 Babysitter](../adr/010-2-pr-babysitter-lifecycle.md) | sequences, components (`orchestration`) |
+| [011 CLI / signals](../adr/011-2-cli-signals-and-process-lifecycle.md) | ui, sequences, components (`cli`) |
+| [012 Dashboard](../adr/012-2-dashboard-stack-and-control-api.md) | ui, components (`dashboard`) |
 
 ## Locked design choices (beyond ADRs)
 
@@ -81,8 +81,8 @@ These were agreed for design and are normative for v1:
 | Choice | Decision |
 |--------|----------|
 | Doc layout | Hybrid: concern files; `components.md` ordered by ADR 001 packages |
-| Intake fetch failure | Skip orchestration steps 4–7 (no label mutations / fulfill / claim-then-spawn). Still run step 3 (ACP exit reconcile). Babysitter step 8 only if the PR fetch succeeds |
-| Warn-only privilege probes | Empty in v1 — the probe list is the required set only ([005](../adr/005-1-connector-interface-and-github-client.md)) |
+| Intake fetch failure | Skip orchestration steps 4–7 (claim drop for eligibility, cap count, fulfill saved claims, new claims). Still run step 3 (ACP exit reconcile, which may drop a claim when shutdown has not started). Babysitter step 8 only if the PR fetch succeeds. Persist mutations as they happen |
+| Warn-only privilege probes | Empty in v1 — the probe list is the required set only ([005](../adr/005-2-connector-interface-and-github-client.md)) |
 | ACP depth | Orkie `acp` module API **and** ACP JSON-RPC wire sequence Orkie uses (protocol version 2, newline-delimited stdio) |
 
 ## Update rules

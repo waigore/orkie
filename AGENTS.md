@@ -32,7 +32,8 @@ GitHub is the supported platform. Further task trackers and version-control host
 ## Implementation
 
 - Language, dependencies, secrets, and tests: [`spec/adr/002-1-tech-stack-and-dependencies.md`](spec/adr/002-1-tech-stack-and-dependencies.md).
-- Package and module layout: [`spec/adr/001-1-process-model-and-module-layout.md`](spec/adr/001-1-process-model-and-module-layout.md).
+- Tests: offline pytest with `connectors`/`acp` fakes; ≥80% overall coverage. Details: [`spec/adr/002-1-tech-stack-and-dependencies.md`](spec/adr/002-1-tech-stack-and-dependencies.md).
+- Package and module layout: [`spec/adr/001-2-process-model-and-module-layout.md`](spec/adr/001-2-process-model-and-module-layout.md).
 
 ## License
 

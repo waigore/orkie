@@ -2,7 +2,7 @@
 
 ## Description
 
-Orkie starts against a target Git project, discovers that project's `.orkie/` configuration directory, and loads [`.orkie/config.yaml`](#config-schema). That file defines the GitHub connector, the labels that mark intake issues, the single claim label, session caps, agents (config identity, command, prompt, triggers), the optional PR babysitter, and the dashboard port. If `.orkie/` or `config.yaml` is missing, bootstrap offers to create a basic default config the operator can accept or reject **only when the process is interactive**. In non-interactive mode (for example systemd), missing config is a hard failure with no prompt. The default config defines one agent that handles one open issue at a time, among issues that carry the default issue label. Bootstrap validates that the config is usable and prepares the runtime for continuous orchestration. Secrets and tokens are never stored in `.orkie/`; the GitHub token comes from the `GITHUB_TOKEN` environment variable (see [03-connector-interface-and-github.md](03-connector-interface-and-github.md)).
+Orkie starts against a target Git project, discovers that project's `.orkie/` configuration directory, and loads [`.orkie/config.yaml`](#config-schema). That file defines the GitHub connector, the labels that mark intake issues, session caps, agents (config identity, command, prompt, triggers), the optional PR babysitter, and the dashboard port. If `.orkie/` or `config.yaml` is missing, bootstrap offers to create a basic default config the operator can accept or reject **only when the process is interactive**. In non-interactive mode (for example systemd), missing config is a hard failure with no prompt. The default config defines one agent that handles one open issue at a time, among issues that carry the default issue label. Bootstrap validates that the config is usable and prepares the runtime for continuous orchestration. Secrets and tokens are never stored in `.orkie/`; the GitHub token comes from the `GITHUB_TOKEN` environment variable (see [03-connector-interface-and-github.md](03-connector-interface-and-github.md)).
 
 Config is loaded at bootstrap and applies for that process. Editing the file during a run has no effect until the next start.
 
@@ -72,24 +72,6 @@ Actors are defined in [users.md](users.md).
 **When** an operator stores or expects API tokens inside `.orkie/`  
 **Then** Orkie does not treat `.orkie/` as a credential store. Bootstrap reads the GitHub token from `GITHUB_TOKEN`
 
-### Claim label is configurable or defaulted
-
-**Given** project YAML may set `claim_label`  
-**When** bootstrap loads config  
-**Then** Orkie uses that label name when set, otherwise `orkie:claimed`, and that single name is available to orchestration (see [05-agent-orchestration.md](05-agent-orchestration.md))
-
-### Missing claim label is created or treated as a required privilege gap
-
-**Given** the resolved claim label does not already exist on the GitHub repository  
-**When** bootstrap prepares the connector  
-**Then** Orkie creates that label when the token has permission. When the token does not, that is a missing required privilege and follows [03-connector-interface-and-github.md](03-connector-interface-and-github.md#required-privileges)
-
-### Claim label stays out of issue_labels
-
-**Given** project YAML sets `claim_label` to a name that also appears in `issue_labels`  
-**When** Orkie validates config  
-**Then** bootstrap fails with an error that says the claim label must be separate from intake trigger labels
-
 ### Related prompt files live under `.orkie/`
 
 **Given** an agent or babysitter uses `prompt_file`  
@@ -108,13 +90,12 @@ The only config file is `.orkie/config.yaml`. `version` must be `1`. Unknown fie
 | `connector` | yes | | Connector selection. See below. |
 | `poll_interval_seconds` | no | `60` | Intake and PR poll interval. Integer `>= 15`. |
 | `issue_labels` | yes | | One or more GitHub label names. An open issue is an intake issue when it is not a pull request and has at least one of these labels. |
-| `claim_label` | no | `orkie:claimed` | The single Orkie-owned claim label applied to a claimed issue. Must not appear in `issue_labels`. |
-| `max_concurrent_sessions` | no | `1` | Global ceiling on issue sessions across all agents. Integer `>= 1`. |
+| `max_concurrent_sessions` | no | `1` | Global ceiling on working issue sessions across all agents. Integer `>= 1`. |
 | `dashboard_port` | no | `8765` | Loopback TCP port for the local dashboard. Integer `1`–`65535`. Overridable on the CLI (see [08-cli-and-dashboard.md](08-cli-and-dashboard.md)). |
 | `agents` | yes | | One or more agent definitions. |
 | `babysitter` | no | `{enabled: false}` | Optional PR babysitter. |
 
-`issue_labels` and `claim_label` are GitHub label names: non-empty and at most 50 characters. Names in `issue_labels` are unique. `claim_label` must not equal any entry in `issue_labels` (claim labels are an Orkie construct; intake triggers are project-defined and separate).
+`issue_labels` entries are GitHub label names: non-empty, unique, and at most 50 characters. Intake triggers are project-defined. Orkie does not reserve a label for its own claims.
 
 `connector`:
 
@@ -195,7 +176,6 @@ connector:
 poll_interval_seconds: 60
 issue_labels:
   - orkie
-claim_label: orkie:claimed
 max_concurrent_sessions: 1
 dashboard_port: 8765
 agents:
@@ -224,8 +204,8 @@ The default issue label is `orkie`. The default agent command is OpenCode's ACP 
 
 ### Session caps
 
-- Each agent definition allows at most its `max_concurrent_sessions` live issue sessions. Omitted means 1.
-- The project `max_concurrent_sessions` is a hard ceiling on live issue sessions across every agent. Omitted means 1.
+- Each agent definition allows at most its `max_concurrent_sessions` working issue sessions. Omitted means 1.
+- The project `max_concurrent_sessions` is a hard ceiling on working issue sessions across every agent. Omitted means 1.
 - The effective room for an agent is the smaller of its remaining per-agent room and the remaining global room.
 - Raising a per-agent limit while the global limit stays `1` still yields one issue session.
 - Values above 1 are valid. The operator accepts the risk of concurrent agents.
@@ -242,7 +222,6 @@ The default issue label is `orkie`. The default agent command is OpenCode's ACP 
 - [ ] Invalid or incomplete config fails bootstrap before the continuous loop starts. Errors name the problem. The default offer applies only when config is absent, not when it is present and broken.
 - [ ] Agent `role` is project-defined display/metadata. Exactly one of `prompt` or `prompt_file` is required. When `babysitter.enabled` is false, other babysitter fields are ignored. The default scaffold is only a starting template.
 - [ ] Tokens and secrets are not read from `.orkie/`. `GITHUB_TOKEN` is required. Required connector privileges and interactive vs non-interactive handling are defined in [03-connector-interface-and-github.md](03-connector-interface-and-github.md#required-privileges).
-- [ ] `claim_label` must not appear in `issue_labels`.
 - [ ] `poll_interval_seconds` defaults to 60 and must be an integer greater than or equal to 15. `dashboard_port` defaults to 8765.
 - [ ] Optional `connector.repo` is `owner/name`. When it is omitted, repository resolution follows [03-connector-interface-and-github.md](03-connector-interface-and-github.md).
 - [ ] `issue_labels` selects intake issues. Pull requests are not intake issues (see [06-work-intake-and-issue-monitoring.md](06-work-intake-and-issue-monitoring.md)).

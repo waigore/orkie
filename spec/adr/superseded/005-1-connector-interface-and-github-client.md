@@ -1,10 +1,8 @@
-# ADR 005: Connector interface and GitHub client
-
 ## Status
 
-Accepted
+Superseded by [005-2](../005-2-connector-interface-and-github-client.md).
 
-Supersedes [005](superseded/005-connector-interface-and-github-client.md).
+Supersedes [005](005-connector-interface-and-github-client.md).
 
 ## Context
 
@@ -36,7 +34,7 @@ Issue comments are out of scope (no read/write comment APIs in v1).
 
 - Module: `orkie.connectors.github`.
 - Auth: `Authorization: Bearer` from `GITHUB_TOKEN` (never from `.orkie/`).
-- Transport: stdlib `urllib.request` ([002-1](002-1-tech-stack-and-dependencies.md)).
+- Transport: stdlib `urllib.request` ([002-1](../002-1-tech-stack-and-dependencies.md)).
 - API: GitHub REST v3; `Accept: application/vnd.github+json`; paginate with `Link` headers. A partial multi-page fetch raises and must not be treated as a complete list ([009-1](009-1-intake-poll-and-delta.md)).
 - Open issues: request open issues and exclude PRs (`pull_request` key present) client-side. Do not enumerate closed issues for intake.
 - Factory: `build_connector(config) -> Connector` returns GitHub when `connector.type == "github"`; other types fail validation at config load.

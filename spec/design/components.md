@@ -2,9 +2,9 @@
 
 | Features | ADRs |
 |----------|------|
-| [01](../feature/01-project-bootstrap-and-config.md)–[08](../feature/08-cli-and-dashboard.md) | [001](../adr/001-1-process-model-and-module-layout.md)–[012](../adr/012-1-dashboard-stack-and-control-api.md) |
+| [01](../feature/01-project-bootstrap-and-config.md)–[08](../feature/08-cli-and-dashboard.md) | [001](../adr/001-2-process-model-and-module-layout.md)–[012](../adr/012-2-dashboard-stack-and-control-api.md) |
 
-Package map and process model are locked by [ADR 001](../adr/001-1-process-model-and-module-layout.md). This document defines purpose, scope, interfaces, and lifecycle for each package so implementation does not invent boundaries.
+Package map and process model are locked by [ADR 001](../adr/001-2-process-model-and-module-layout.md). This document defines purpose, scope, interfaces, and lifecycle for each package so implementation does not invent boundaries.
 
 ## Shared process objects
 
@@ -17,16 +17,17 @@ One OS process per resolved `owner/name`. After successful bootstrap, these live
 | State store | `orkie.state.StateStore` | Shared; main thread writes; dashboard reads |
 | Live session table | `dict[str, SessionHandle]` keyed by Orkie `session_id` | `orchestration` / `acp` |
 | `shutdown_event` | `threading.Event` | `cli` sets; loop and dashboard observe |
-| `immediate_kill` | `threading.Event` or bool flag | Second signal during grace |
+| `immediate_kill` | `threading.Event` or bool flag | Second signal during the shutdown prompt or the graceful 20 second wait |
 | Cycle lock | `threading.Lock` | Main holds for whole poll cycle; dashboard takes for one interrupt/kill |
-| Start-checkout label | `str` branch name or `"detached"` | Set at bootstrap; dashboard issue view |
+| Start checkout | commit sha plus branch name or `"detached"` | `worktree.resolve_base` at bootstrap; dashboard header and worktree create |
 | Last intake error | `str \| None` in memory | `intake` writes; dashboard reads |
 | Effective dashboard port | `int` | CLI `--port` or config |
 
 Dependency direction (do not invert):
 
 ```text
-cli → config, state, connectors → intake → orchestration → acp, worktree
+cli → bootstrap (config, state, connectors, worktree)
+    → loop (intake → orchestration → acp / worktree)
 dashboard → state (read), orchestration (controls only)
 ```
 
@@ -35,11 +36,11 @@ dashboard → state (read), orchestration (controls only)
 ## `orkie.cli`
 
 **Features:** [01](../feature/01-project-bootstrap-and-config.md), [08](../feature/08-cli-and-dashboard.md)  
-**ADRs:** [003](../adr/003-1-config-load-and-bootstrap-sequence.md), [011](../adr/011-1-cli-signals-and-process-lifecycle.md)
+**ADRs:** [003](../adr/003-2-config-load-and-bootstrap-sequence.md), [011](../adr/011-2-cli-signals-and-process-lifecycle.md)
 
 ### Purpose
 
-Process entrypoint: parse args, run bootstrap, install signals, start dashboard thread, run poll loop, graceful shutdown, exit codes.
+Process entrypoint: parse args, run bootstrap, install signals, start dashboard thread, run poll loop, shut down (normal or graceful), exit codes.
 
 ### Scope
 
@@ -64,17 +65,21 @@ def resolve_project_root(project: Path | None) -> Path:
 def run_bootstrap(...) -> RuntimeContext:
     """Strict 12-step sequence; see sequences.md. Raises SystemExit or returns context."""
 
-def install_signal_handlers(shutdown_event: threading.Event, immediate_kill: threading.Event) -> None:
-    """SIGINT and SIGTERM: first sets shutdown_event; second sets immediate_kill."""
+def install_signal_handlers(shutdown_event: threading.Event, immediate_kill: threading.Event, prompt_requested: threading.Event) -> None:
+    """Handlers only set flags. SIGTERM and non-interactive SIGINT set shutdown_event for normal shutdown.
+    Interactive SIGINT with a live session sets prompt_requested. A second SIGINT or SIGTERM sets immediate_kill."""
 
 def run_poll_loop(ctx: RuntimeContext) -> None:
-    """Until shutdown_event: acquire cycle lock → one orchestration cycle → release → wait."""
+    """Until shutdown_event or prompt_requested: acquire cycle lock → one orchestration cycle → release → wait."""
 
 def wait_poll_interval(ctx: RuntimeContext) -> None:
     """Sleep up to poll_interval_seconds in ≤1s slices, waking early if shutdown_event is set."""
 
-def graceful_shutdown(ctx: RuntimeContext) -> int:
-    """Returns 0 if all claim-label removals succeeded, else 1."""
+def choose_shutdown_mode(ctx: RuntimeContext) -> Literal["normal", "graceful"]:
+    """Main thread. Interactive Ctrl-C with a live session: prompt until g or n (ui.md). Otherwise normal."""
+
+def shutdown(ctx: RuntimeContext, *, mode: Literal["normal", "graceful"]) -> int:
+    """Local cleanup, then 0. Worktree removal failure is logged and does not change the code. Claims are kept."""
 ```
 
 `RuntimeContext` holds the shared process objects listed above plus project root and state root.
@@ -83,8 +88,8 @@ def graceful_shutdown(ctx: RuntimeContext) -> int:
 
 1. `main` → `parse_args` → `run_bootstrap` (failure → non-zero exit; dashboard never healthy).
 2. Start dashboard thread; print URL.
-3. `run_poll_loop` until `shutdown_event`.
-4. `graceful_shutdown` → exit code.
+3. `run_poll_loop` until `shutdown_event` or `prompt_requested`.
+4. `choose_shutdown_mode` (if prompt path) then `shutdown` → exit 0.
 
 Unix-like hosts only for process lock (macOS/Linux). Document that on refuse-start / help text.
 
@@ -93,7 +98,7 @@ Unix-like hosts only for process lock (macOS/Linux). Document that on refuse-sta
 ## `orkie.config`
 
 **Features:** [01](../feature/01-project-bootstrap-and-config.md)  
-**ADRs:** [002](../adr/002-1-tech-stack-and-dependencies.md), [003](../adr/003-1-config-load-and-bootstrap-sequence.md)
+**ADRs:** [002](../adr/002-1-tech-stack-and-dependencies.md), [003](../adr/003-2-config-load-and-bootstrap-sequence.md)
 
 ### Purpose
 
@@ -114,7 +119,6 @@ class Config:
     connector: ConnectorConfig
     poll_interval_seconds: int
     issue_labels: list[str]
-    claim_label: str
     max_concurrent_sessions: int
     dashboard_port: int
     agents: list[AgentConfig]
@@ -165,10 +169,11 @@ def substitute_prompt(
     agent_id: str,
     agent_name: str,
     repo: str,
-    issue: IssuePromptFields | None,
-    pr: PrPromptFields | None,
+    issue: Issue | None,
+    pr: PullRequest | None,
 ) -> str:
-    """Replace every feature-01 token. Issue session: PR tokens empty. Babysitter: issue tokens empty."""
+    """Replace every feature-01 token. Issue and PullRequest are the connector dataclasses.
+    Issue session: PR tokens empty. Babysitter: issue tokens empty."""
 ```
 
 Full field rules: [config.md](config.md).
@@ -182,7 +187,7 @@ Called only during bootstrap (and scaffold write before re-load). Config object 
 ## `orkie.state`
 
 **Features:** [02](../feature/02-local-state.md)  
-**ADRs:** [004](../adr/004-1-local-state-format-and-process-lock.md)
+**ADRs:** [004](../adr/004-2-local-state-format-and-process-lock.md)
 
 ### Purpose
 
@@ -192,11 +197,52 @@ Per-user state root, process lock, JSON documents, agent logs.
 
 | In | Out |
 |----|-----|
-| Path layout; flock lock; atomic JSON save/load; append logs with redaction; mark sessions not working | Claim semantics; intake delta; ACP |
+| Path layout; flock lock; atomic JSON save/load; append logs with redaction and a per-agent line lock; delete session records | Claim policy; intake delta; ACP |
 
 ### Interfaces
 
 ```python
+@dataclass(frozen=True)
+class ClaimRecord:
+    agent_id: str
+    issue_number: int
+    claimed_at: str  # UTC ISO-8601 with Z
+
+@dataclass(frozen=True)
+class SnapshotIssue:
+    number: int
+    title: str
+    body: str
+    url: str
+    state: str
+    labels: list[str]
+
+@dataclass(frozen=True)
+class Snapshot:
+    fetched_at: str
+    issues: list[SnapshotIssue]
+
+@dataclass(frozen=True)
+class SessionRecord:
+    session_id: str
+    agent_id: str
+    issue_number: int | None
+    pr_number: int | None
+    working: bool
+    worktree_path: str
+    started_at: str
+
+@dataclass(frozen=True)
+class SpawnFailureRecord:
+    agent_id: str
+    agent_name: str
+    issue_number: int | None
+    pr_number: int | None
+    attempt: int  # 1–3
+    released: bool
+    error: str
+    at: str
+
 class StateStore:
     def __init__(self, state_root: Path, *, github_token: str | None = None) -> None: ...
 
@@ -215,14 +261,16 @@ class StateStore:
     def load_snapshot(self) -> Snapshot | None: ...
     def save_snapshot(self, snapshot: Snapshot) -> None: ...
 
+    def load_claims(self) -> list[ClaimRecord]: ...
+    def save_claims(self, claims: list[ClaimRecord]) -> None: ...
+
     def load_sessions(self) -> list[SessionRecord]: ...
     def save_sessions(self, sessions: list[SessionRecord]) -> None: ...
+    def delete_sessions(self) -> None:
+        """Unlink the sessions document if present. Startup leftovers and shutdown. Does not parse the file."""
 
     def load_spawn_failures(self) -> list[SpawnFailureRecord]: ...
     def save_spawn_failures(self, failures: list[SpawnFailureRecord]) -> None: ...
-
-    def mark_sessions_not_working(self) -> None:
-        """Load sessions, set every working=False, save. Call after reload at start."""
 
     def append_log(
         self,
@@ -233,7 +281,7 @@ class StateStore:
         issue_number: int | None = None,
         pr_number: int | None = None,
     ) -> None:
-        """Append UTF-8 line with session_id= marker; redact github_token; flush."""
+        """Hold the lock for this agent_id, append one UTF-8 line with session_id= marker, redact github_token, flush."""
 
     def read_log(self, agent_id: str) -> str:
         """Full file contents or empty string if missing."""
@@ -242,18 +290,18 @@ def default_state_root(owner: str, repo: str, *, home: Path | None = None) -> Pa
     """(home or Path.home()) / '.local' / 'share' / 'orkie' / f'{owner}--{repo}'."""
 ```
 
-JSON field schemas: [data.md](data.md). Injectable `home` / `state_root` for tests.
+JSON field schemas and invariants (at most one claim per issue; exactly one of session `issue_number` / `pr_number` non-null): [data.md](data.md). Injectable `home` / `state_root` for tests.
 
 ### Lifecycle
 
-Constructed in bootstrap step 5–6; lock held until shutdown step 8. Dashboard and orchestration share one instance.
+Constructed when the lock is acquired. Lock held until shutdown releases it. Dashboard and orchestration share one instance. Startup calls `delete_sessions` and does not resume those records.
 
 ---
 
 ## `orkie.connectors`
 
 **Features:** [03](../feature/03-connector-interface-and-github.md), [06](../feature/06-work-intake-and-issue-monitoring.md), [07](../feature/07-pr-babysitter.md)  
-**ADRs:** [005](../adr/005-1-connector-interface-and-github-client.md)
+**ADRs:** [005](../adr/005-2-connector-interface-and-github-client.md)
 
 ### Purpose
 
@@ -263,7 +311,7 @@ Abstract tracker access; GitHub REST v3 implementation; fake for tests.
 
 | In | Out |
 |----|-----|
-| `Connector` Protocol; dataclasses; GitHub urllib client; privilege probe; label ensure/add/remove; mergeable resolution | Intake delta; claim policy; ACP |
+| `Connector` Protocol; dataclasses; GitHub urllib client; read-only privilege probe; mergeable resolution | Intake delta; claim policy; ACP |
 
 ### Interfaces
 
@@ -294,10 +342,8 @@ class PullRequest:
 
 class Privilege(enum.Enum):
     TOKEN = "token"
+    READ_REPOSITORY = "read_repository"
     READ_ISSUES = "read_issues"
-    ADD_LABEL = "add_label"
-    REMOVE_LABEL = "remove_label"
-    CREATE_LABEL = "create_label"
     READ_PULL_REQUESTS = "read_pull_requests"
 
 @dataclass(frozen=True)
@@ -309,9 +355,6 @@ class Connector(Protocol):
     def repository_id(self) -> OwnerRepo: ...
     def list_open_issues(self) -> list[Issue]: ...
     def list_open_pull_requests(self) -> list[PullRequest]: ...
-    def ensure_label(self, name: str) -> None: ...
-    def add_issue_label(self, number: int, label: str) -> None: ...
-    def remove_issue_label(self, number: int, label: str) -> None: ...
     def probe_privileges(self, required: set[Privilege]) -> ProbeResult: ...
 
 def resolve_github_repo(project_root: Path, connector_repo: str | None) -> OwnerRepo:
@@ -320,8 +363,8 @@ def resolve_github_repo(project_root: Path, connector_repo: str | None) -> Owner
 def build_connector(config: Config, token: str, owner_repo: OwnerRepo) -> Connector:
     """GitHub when config.connector.type == 'github'."""
 
-def required_privileges(config: Config, *, claim_label_exists: bool) -> set[Privilege]:
-    """Feature-03 table. Include CREATE_LABEL iff claim label missing. Include READ_PULL_REQUESTS iff babysitter.enabled."""
+def required_privileges(config: Config) -> set[Privilege]:
+    """Feature-03 table: TOKEN, READ_REPOSITORY, READ_ISSUES, and READ_PULL_REQUESTS iff babysitter.enabled."""
 ```
 
 #### GitHub client (`orkie.connectors.github`)
@@ -330,35 +373,33 @@ def required_privileges(config: Config, *, claim_label_exists: bool) -> set[Priv
 - Headers: `Authorization: Bearer <token>`, `Accept: application/vnd.github+json`, `X-GitHub-Api-Version: 2022-11-28`
 - List open issues: `GET /repos/{owner}/{repo}/issues?state=open&per_page=100`; follow `Link`; exclude items with `pull_request` key
 - List open PRs: `GET /repos/{owner}/{repo}/pulls?state=open&per_page=100`; for each PR whose `mergeable_state` is null/`unknown`, `GET /repos/{owner}/{repo}/pulls/{number}` and use that `mergeable_state` (or `"unknown"` if still unset)
-- Ensure label: `GET /repos/{owner}/{repo}/labels/{name}` → 404 then `POST /repos/{owner}/{repo}/labels` with `{"name": name, "color": "0e8a16"}` (color fixed for v1)
-- Add/remove label: `POST/DELETE /repos/{owner}/{repo}/issues/{number}/labels[/{name}]`
-- Probe: missing token → `TOKEN`; otherwise attempt lightweight checks mapped to required set (e.g. GET repo, GET issues page 1, label ops as needed). Warn-only set always empty in v1
+- Probe, in order, only for privileges in `required`: empty token → missing `TOKEN` and no HTTP. `GET /repos/{owner}/{repo}` → `READ_REPOSITORY`. `GET /repos/{owner}/{repo}/issues?state=open&per_page=1` → `READ_ISSUES`. `GET /repos/{owner}/{repo}/pulls?state=open&per_page=1` → `READ_PULL_REQUESTS` only when the babysitter is enabled. HTTP 401 or 403 is `AuthError` and that privilege is missing. A rate-limit body is `RateLimitError` (probe failure at bootstrap; failed fetch during a poll), not a warn-only gap. Warn-only set is always empty in v1
 - Errors: raise `ConnectorError` subclasses (`AuthError`, `RateLimitError`, `NotFoundError`, `ConnectorError`) — never return partial pages
 
 #### Fake (`orkie.connectors.fake`)
 
-In-memory issues/PRs/labels for pytest. `list_open_pull_requests` returns stored `mergeable_state` without secondary GETs.
+In-memory issues and PRs for pytest. `list_open_pull_requests` returns stored `mergeable_state` without secondary GETs.
 
 ### Lifecycle
 
-Built in bootstrap step 8; used for privilege probe (9), ensure claim label (10), then every poll cycle. No connection pool beyond urllib defaults.
+Built after the token is read; used for the read-only privilege probe, then every poll cycle. No connection pool beyond urllib defaults.
 
 ---
 
 ## `orkie.acp`
 
 **Features:** [04](../feature/04-acp-agent-runtime.md)  
-**ADRs:** [006](../adr/006-acp-agent-runtime.md), [002](../adr/002-1-tech-stack-and-dependencies.md)
+**ADRs:** [006](../adr/006-1-acp-agent-runtime.md), [002](../adr/002-1-tech-stack-and-dependencies.md)
 
 ### Purpose
 
-JSON-RPC-over-stdio ACP client: spawn, prompt, interrupt, kill, log drain.
+JSON-RPC-over-stdio ACP client: spawn, prompt, interrupt, delete, log drain.
 
 ### Scope
 
 | In | Out |
 |----|-----|
-| Subprocess + stdio framing; ACP initialize / session / prompt / cancel / permissions; process-group kill; log mirror | Worktree create; claim labels; spawn-failure policy |
+| Subprocess + stdio framing; ACP initialize / session / prompt / cancel / permissions; session/delete and process-group SIGKILL; log mirror including permission grants | Worktree create; local claims; spawn-failure policy |
 
 ### Orkie module API
 
@@ -373,11 +414,13 @@ class SessionHandle:
     worktree_path: Path
     process: subprocess.Popen
     reader_thread: threading.Thread
+    session_delete: bool          # capabilities.session.delete from initialize
     # internal: stdin/stdout locks, pending JSON-RPC futures, closed flag
 
 class AcpClient(Protocol):
     def spawn(
         self,
+        session_id: str,
         *,
         command: list[str],
         worktree_path: Path,
@@ -388,15 +431,22 @@ class AcpClient(Protocol):
         env_token: str,
         append_log: Callable[..., None],
     ) -> SessionHandle:
-        """New Orkie session_id; start process; ACP handshake; deliver prompt.
-        On any failure after process start: kill process, raise AcpError.
-        Does not set disk working=true (orchestration does after success)."""
+        """Use the session_id orchestration minted. Do not mint a second id.
+        Start process; ACP handshake; deliver prompt. Success is the prompt result's messageId.
+        On any failure after process start: SIGKILL the process group, raise AcpError.
+        Does not write the session record (orchestration does after success)."""
 
     def interrupt(self, handle: SessionHandle) -> None:
-        """session/cancel; answer pending permissions with cancelled."""
+        """session/cancel; answer pending permissions with cancelled and log permission cancelled."""
 
-    def kill(self, handle: SessionHandle) -> None:
-        """session/close if possible, then terminate process / process group."""
+    def prompt(self, handle: SessionHandle, text: str) -> None:
+        """session/prompt. A JSON-RPC error raises AcpError. Does not wait for idle.
+        Used for the graceful wrap-up prompt."""
+
+    def end_session(self, handle: SessionHandle) -> None:
+        """Delete path. If session_delete: send session/delete, then SIGKILL the process group
+        if the process has not exited within 5 seconds. If not session_delete: SIGKILL immediately.
+        The 5 seconds are process exit, not the empty JSON-RPC result."""
 
     def is_alive(self, handle: SessionHandle) -> bool:
         """False when process has exited."""
@@ -416,7 +466,7 @@ Normative external reference: [Agent Client Protocol](https://agentclientprotoco
 **Spawn sequence (success path):**
 
 1. `Popen(command, stdin=PIPE, stdout=PIPE, stderr=PIPE, cwd=worktree_path, env=os.environ | {"GITHUB_TOKEN": env_token}, start_new_session=True)` when the platform allows a new process group.
-2. Start reader thread: read stdout lines → parse JSON-RPC → dispatch responses/notifications; mirror text-like `session/update` content and stderr lines to `append_log` with `session_id=`.
+2. Start reader thread: read stdout lines → parse JSON-RPC → dispatch responses/notifications; mirror `agent_message` and `agent_message_chunk` text, and stderr lines, to `append_log` with `session_id=`.
 3. Request `initialize`:
 
 ```json
@@ -432,7 +482,7 @@ Normative external reference: [Agent Client Protocol](https://agentclientprotoco
 }
 ```
 
-4. Require response `protocolVersion == 2` (or a version Orkie supports). If agent returns unsupported version → fail spawn. If `authMethods` is non-empty → fail spawn with a clear error (v1 does not implement `auth/login`).
+4. Require `protocolVersion == 2`. Any other version fails the spawn. Remember `capabilities.session.delete` (true only when that field is present and true). If `authMethods` is non-empty → fail spawn with a clear error (v1 does not implement `auth/login`).
 5. Request `session/new`:
 
 ```json
@@ -449,7 +499,7 @@ Normative external reference: [Agent Client Protocol](https://agentclientprotoco
 
 Store returned `sessionId` as `handle.acp_session_id`.
 
-6. **Full permissions:** for every inbound `session/request_permission` while the session is alive (except after cancel), auto-approve without prompting. Choose the option whose `kind` is, in order: `allow_always`, then `allow_once`, else the first option whose `kind` is not `reject_once` or `reject_always`. If no allow option exists, fail the spawn or log and respond cancelled (should not happen with well-behaved agents).
+6. **Implicit permission grants:** for every inbound `session/request_permission` while the session is running, including during this handshake, select an option and log a grant. Order: `allow_always`, else `allow_once`, else the first kind that is neither `reject_once` nor `reject_always`, else the first option. A reject-only choice is still a grant and is not a spawn failure. Do not answer `cancelled` on this path. The log line is the permission-grant format in [data.md](data.md).
 
 ```json
 {
@@ -464,7 +514,7 @@ Store returned `sessionId` as `handle.acp_session_id`.
 }
 ```
 
-After `session/cancel`, respond to every pending permission with:
+After `session/cancel` (dashboard interrupt or graceful shutdown), respond to every pending permission with `cancelled` and append a `permission cancelled` log line:
 
 ```json
 {
@@ -490,9 +540,13 @@ After `session/cancel`, respond to every pending permission with:
 }
 ```
 
-Spawn succeeds when this request returns success (message accepted). Foreground agent work continues via `session/update` notifications; Orkie does not wait for idle before returning from `spawn`.
+Spawn succeeds when this request returns a result that carries `messageId`. A later idle `state_update` does not clear `working`. Orkie does not wait for idle before returning from `spawn`. A JSON-RPC error on this request fails the spawn.
 
-**Handshake timeout:** 60 seconds wall clock covering steps 3–7. On timeout → kill process group → `AcpError`.
+```json
+{ "jsonrpc": "2.0", "id": 3, "result": { "messageId": "<id>" } }
+```
+
+**Handshake timeout:** 60 seconds wall clock covering initialize, `session/new`, and prompt acceptance (steps 3–7). On timeout → SIGKILL the process group → `AcpError`. The wrap-up prompt is not part of this timeout.
 
 **Interrupt:**
 
@@ -502,13 +556,26 @@ Spawn succeeds when this request returns success (message accepted). Foreground 
 
 Notification (no response). For each pending `session/request_permission`, respond with cancelled outcome. Session stays alive; Orkie `working` stays true.
 
-**Kill / shutdown terminate:**
+**Delete path** (`end_session`), used by dashboard kill and by both shutdown modes:
 
-1. Best-effort `session/close` request (ignore errors).
-2. `process.terminate()`; if still alive after a short wait (2s), `os.killpg(pid, SIGKILL)` when `start_new_session` was used, else `process.kill()`.
-3. Join reader thread (bounded wait).
+1. If `session_delete` is true, send:
 
-**Observe exit:** `process.poll() is not None` or stdout EOF with process dead → `is_alive` false. Orchestration owns claim release.
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "<n>",
+  "method": "session/delete",
+  "params": { "sessionId": "<acp_session_id>" }
+}
+```
+
+The result is `{}`. That result does not mean the process has exited.
+
+2. If the process has not exited within 5 seconds, `os.killpg` SIGKILL (the child was started with `start_new_session=True`).
+3. If `session_delete` is false, skip the request and SIGKILL immediately.
+4. Join the reader thread (bounded wait).
+
+**Observe exit:** `process.poll() is not None` or stdout EOF with process dead → `is_alive` false. Orchestration drops a local issue claim only when the exit is observed while Orkie is running and neither `shutdown_event` nor the interactive shutdown-prompt flag is set.
 
 ### Fake (`orkie.acp.fake`)
 
@@ -516,24 +583,24 @@ Controllable spawn success/failure, interrupt/kill, and exit for offline tests. 
 
 ### Lifecycle
 
-Handles exist only while Orkie runs. Disk `working` is cleared on every process start; live handles are authoritative while running.
+Handles exist only while Orkie runs. The on-disk session document is deleted on shutdown and at the next start. Live handles are authoritative while running. Orkie does not store the agent pid and does not reap orphaned processes at startup.
 
 ---
 
 ## `orkie.intake`
 
 **Features:** [06](../feature/06-work-intake-and-issue-monitoring.md)  
-**ADRs:** [009](../adr/009-1-intake-poll-and-delta.md)
+**ADRs:** [009](../adr/009-2-intake-poll-and-delta.md)
 
 ### Purpose
 
-Fetch open issues via connector, maintain intake snapshot, compute delta and `claim_labeled` set for orchestration.
+Fetch open issues via connector, maintain intake snapshot, compute the delta for orchestration.
 
 ### Scope
 
 | In | Out |
 |----|-----|
-| Eligibility; fetch; snapshot save; delta; last-error memory | Claim label mutations; PR list; ACP |
+| Eligibility; fetch; snapshot save; delta; last-error memory | Local claims; PR list; ACP |
 
 ### Interfaces
 
@@ -541,16 +608,14 @@ Fetch open issues via connector, maintain intake snapshot, compute delta and `cl
 @dataclass(frozen=True)
 class IntakeDelta:
     entered: list[Issue]
-    left: list[Issue]           # prior snapshot issues no longer intake
+    left: list[Issue]           # prior snapshot issues no longer intake (diagnostic; step 4 scans all claims)
     labels_changed: list[Issue] # still intake; label set differed
-    claim_labeled: list[Issue]  # open issues with claim_label (intake or not); not stored in snapshot
 
 @dataclass(frozen=True)
 class IntakeResult:
     ok: bool
     intake_issues: list[Issue]  # empty/unused for mutations when not ok
     delta: IntakeDelta | None
-    claim_labeled: list[Issue]  # empty when not ok
     error: str | None           # set when not ok; also stored as last_error
 
 class Intake:
@@ -561,12 +626,12 @@ class Intake:
 
     def fetch_and_diff(self) -> IntakeResult:
         """On success: save snapshot, clear last_error, return delta.
-        On failure: keep disk snapshot, set last_error, ok=False; no claim_labeled."""
+        On failure: keep disk snapshot, set last_error, ok=False. Claims are not changed by this method."""
 ```
 
 **Eligibility:** open non-PR issue (connector already excludes PRs) whose `labels` intersect `config.issue_labels`.
 
-**Delta:** compare previous snapshot issues (by number) to new intake set — entered / left / labels_changed. `claim_labeled` = all issues from this successful open-issue fetch that include `config.claim_label` in `labels` (including non-intake opens).
+**Delta:** compare previous snapshot issues (by number) to new intake set — entered / left / labels_changed. Orchestration step 4 still scans every claim against the full `intake_issues` list; `left` is diagnostic, not the sole drop input.
 
 ### Lifecycle
 
@@ -577,11 +642,11 @@ Invoked once per poll cycle step 2 from the main thread. Does not start a fetch 
 ## `orkie.orchestration`
 
 **Features:** [05](../feature/05-agent-orchestration.md), [07](../feature/07-pr-babysitter.md)  
-**ADRs:** [007](../adr/007-1-orchestration-cycle-and-claim-session-state-machine.md), [010](../adr/010-1-pr-babysitter-lifecycle.md)
+**ADRs:** [007](../adr/007-2-orchestration-cycle-and-claim-session-state-machine.md), [010](../adr/010-2-pr-babysitter-lifecycle.md)
 
 ### Purpose
 
-Sole owner of claim-label mutations, spawn/release decisions, caps, swarm-fit, babysitter step, and dashboard interrupt/kill entrypoints.
+Sole owner of local claims, spawn and drop decisions, caps, the babysitter step, and dashboard interrupt/kill entrypoints.
 
 ### Scope
 
@@ -602,27 +667,30 @@ class Orchestrator:
         """Raise KeyError if unknown; fail closed if shutting down."""
 
     def kill_session(self, session_id: str) -> None:
-        """Terminate ACP; issue session → remove claim label; remove worktree; mark not working."""
+        """ACP delete path; issue session drops the local claim; remove worktree; delete the session record."""
 
     def request_shutdown(self) -> None:
         """Idempotent; sets shutdown_event (also set by signals)."""
 
-    def terminate_all_sessions(self) -> None:
-        """ACP kill all live handles (shutdown step 3)."""
+    def wrap_up_sessions(self) -> None:
+        """Graceful shutdown: session/cancel and the fixed wrap-up prompt for each live session.
+        Pending permissions are cancelled. A prompt error moves that session to end_session."""
 
-    def release_claims_for_stopped_issue_sessions(
-        self, session_ids: list[str]
-    ) -> list[str]:
-        """Remove claim labels; return list of issue numbers (or ids) that failed removal."""
+    def end_all_sessions(self) -> None:
+        """Delete path for every live handle. Does not drop claims."""
 
     def remove_all_worktrees(self) -> None: ...
 ```
 
-**Agent match:** an agent matches an intake issue if any trigger is `any`, or `labels` and every listed label is on the issue.
+Orchestration mints one UUID4 `session_id` per spawn and passes it to `worktree.create`, `substitute_prompt`, and `acp.spawn`.
 
-**Caps:** count working issue sessions only (not babysitter, not failed spawns). Room for agent A = `min(A.max - working_A, global.max - working_all_issues)`.
+**Agent match:** look up `agent_id` in `config.agents`. Absent → not a match. Present → matches an intake issue if any trigger is `any`, or `labels` and every listed label is on the issue.
 
-**Spawn-failure key:** issue sessions keyed by `issue_number`; babysitter by `pr_number`. Consecutive `attempt` 1–3. Success clears that key's records. Third issue failure: warn stderr, set `released=True`, remove claim label. Third PR failure: skip that PR until not selectable.
+**Step 4 (successful issue fetch):** for each saved claim, if `issue_number` ∉ current `intake_issues`, or the stored agent does not match that issue (including absent `agent_id`), stop a live session on it (delete path), drop the claim, remove the worktree. Persist each drop. Do not use only `delta.left` / `labels_changed`.
+
+**Caps:** count working issue sessions only (not babysitter, not failed spawns, not queued claims). Room for agent A = `min(A.max - working_A, global.max - working_all_issues)`.
+
+**Spawn-failure key:** issue sessions keyed by `issue_number`; babysitter by `pr_number`. Append `attempt` 1–3. Success clears that key's records. Third issue failure: warn stderr, set `released=True`, drop the local claim, write no fourth row. While any row has `attempt == 3`, do not claim or spawn that issue. Third PR failure: skip that PR until not selectable, which clears its rows.
 
 ### Lifecycle
 
@@ -661,19 +729,22 @@ class WorktreeService:
 
     def remove(self, worktree_path: Path) -> None:
         """Best-effort: git worktree remove --force <path> from discovered git dir;
-        else shutil.rmtree. Never raises to block shutdown (log and continue)."""
+        else shutil.rmtree. Never raises to block shutdown or startup (log and continue)."""
+
+    def remove_leftovers(self) -> None:
+        """Best-effort remove each directory under worktrees/. Log failures. Do not raise."""
 ```
 
 ### Lifecycle
 
-`resolve_base` during bootstrap (for dashboard label). `create` immediately before `acp.spawn`. `remove` on every terminal session transition and on failed spawn after create.
+`resolve_base` during bootstrap, once the project root is known, and the result is stored on `RuntimeContext`. `remove_leftovers` during state prepare. `create` immediately before `acp.spawn`, using the session id orchestration minted. `remove` on agent exit while running, dashboard kill, failed spawn after create, lost eligibility, and both shutdown modes.
 
 ---
 
 ## `orkie.dashboard`
 
 **Features:** [08](../feature/08-cli-and-dashboard.md)  
-**ADRs:** [012](../adr/012-1-dashboard-stack-and-control-api.md)
+**ADRs:** [012](../adr/012-2-dashboard-stack-and-control-api.md)
 
 ### Purpose
 
@@ -683,7 +754,7 @@ Loopback HTML UI and control POSTs.
 
 | In | Out |
 |----|-----|
-| `ThreadingHTTPServer` on `127.0.0.1`; pages; form POSTs; cycle lock for controls | Claim policy logic (delegates to orchestration); ACP wire |
+| `ThreadingHTTPServer` on `127.0.0.1`; pages; form POSTs; cycle lock for controls | Claim policy (delegates to orchestration); ACP wire |
 
 ### Interfaces
 
@@ -701,4 +772,4 @@ Control handlers: if `shutdown_event` → HTTP 503. Else acquire cycle lock (blo
 
 ### Lifecycle
 
-Bound in bootstrap step 11; thread started in step 12; stopped in shutdown step 7.
+Bound in bootstrap before the loop; thread started as the loop begins; stopped during shutdown after sessions are ended.

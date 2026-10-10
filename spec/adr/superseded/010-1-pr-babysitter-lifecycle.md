@@ -1,10 +1,8 @@
-# ADR 010: PR babysitter lifecycle
-
 ## Status
 
-Accepted
+Superseded by [010-2](../010-2-pr-babysitter-lifecycle.md).
 
-Supersedes [010](superseded/010-pr-babysitter-lifecycle.md).
+Supersedes [010](010-pr-babysitter-lifecycle.md).
 
 ## Context
 
@@ -35,7 +33,7 @@ A failed PR fetch skips this step only. It does not change issue labels or issue
 
 - New `session_id`; bind `pr_number` only (no claim label).
 - Substitute every feature-01 token. Issue tokens are empty ([003-1](003-1-config-load-and-bootstrap-sequence.md)).
-- Dedicated worktree ([008-1](008-1-git-worktrees.md)); full ACP permissions ([006](006-acp-agent-runtime.md)).
+- Dedicated worktree ([008-1](../008-1-git-worktrees.md)); full ACP permissions ([006](006-acp-agent-runtime.md)).
 - Does not consume issue session caps.
 
 ### Stop and respawn

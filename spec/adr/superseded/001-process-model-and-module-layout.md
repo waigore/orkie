@@ -2,7 +2,7 @@
 
 ## Status
 
-Superseded by [001-1](../001-1-process-model-and-module-layout.md).
+Superseded by [001-1](001-1-process-model-and-module-layout.md).
 
 ## Context
 
