@@ -8,7 +8,7 @@ Supersedes [002](superseded/002-tech-stack-and-dependencies.md).
 
 ## Context
 
-[AGENTS.md](../../AGENTS.md) prefers the standard library and allows a dependency only when stdlib cannot do the job cleanly. Features require YAML config, GitHub HTTP, ACP over stdio, git worktrees, a loopback dashboard, and pytest-backed offline tests. Component design needs an approved stack and an explicit deny list so implementers do not pull frameworks ad hoc.
+Orkie prefers the standard library and allows a dependency only when stdlib cannot do the job cleanly. Features require YAML config, GitHub HTTP, ACP over stdio, git worktrees, a loopback dashboard, and pytest-backed offline tests. Component design needs an approved stack and an explicit deny list so implementers do not pull frameworks ad hoc. Coding conventions for Python live here (not in [AGENTS.md](../../AGENTS.md)).
 
 ## Decision
 
@@ -16,7 +16,8 @@ Supersedes [002](superseded/002-tech-stack-and-dependencies.md).
 
 | Concern | Choice |
 |---------|--------|
-| Language | Python 3.11+ (type hints, `tomllib` not required for v1 config) |
+| Language | Python 3.11+ (`tomllib` not required for v1 config) |
+| Typing | Type hints on public functions and on the connector interface |
 | Packaging | Standard installable project (`pyproject.toml`); console script `orkie` |
 | Config YAML | **PyYAML** `yaml.safe_load` for reading. The default scaffold is the exact document in feature 01, written as that text |
 | GitHub HTTP | **stdlib** `urllib.request` + `json` against GitHub REST API v3 |
@@ -33,8 +34,9 @@ Supersedes [002](superseded/002-tech-stack-and-dependencies.md).
 
 | Concern | Choice |
 |---------|--------|
-| Tests | **pytest** |
+| Tests | **pytest** once a suite exists |
 | Connector / ACP in tests | In-repo fakes; no network, no GitHub account for the default suite |
+| Coverage focus | When orchestration or config loading changes, cover the change with an offline test |
 | Coverage tooling | Optional later; not required to start the suite |
 
 ### Explicitly not used in v1
@@ -64,7 +66,7 @@ Allowed only when stdlib cannot do the job cleanly. Update this ADR (or supersed
 - The scaffold is a fixed document the operator accepts, so it is stored as that document.
 - GitHub needs only a small REST surface (issues, labels, PRs, repo metadata); urllib avoids an HTTP framework.
 - ACP is JSON-RPC over stdio; a thin in-tree client matches “any ACP-compatible agent” without vendor lock-in.
-- pytest is required by AGENTS.md once a suite exists.
+- pytest is the suite runner once tests exist; offline fakes keep CI free of GitHub credentials.
 
 ## Rejected alternatives
 

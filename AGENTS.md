@@ -23,20 +23,16 @@ GitHub is the supported platform. Further task trackers and version-control host
 
 - Project-related skills live under [`.agents/skills/`](.agents/skills/), one folder per skill. That layout keeps skill selection and execution vendor-neutral.
 - Put the skill definition and content (instructions, scripts, references, assets) in that folder. Do not treat any coding agent's native skills path as the source of truth.
-- To let different coding agents (Cursor, OpenCode, Grok, and others) load skills natively, still create thin facades via each agent's native mechanism. Those facades should point at or wrap the shared skill under `.agents/skills/`; they must not duplicate the skill body.
+- Whenever a skill is created or updated under `.agents/skills/`, also create or update thin native facades so Cursor, OpenCode, and Grok Build can load it:
+  - Cursor: [`.cursor/skills/<name>/`](.cursor/skills/)
+  - OpenCode: [`.opencode/skill/<name>/`](.opencode/skill/)
+  - Grok Build: [`.grok/skills/<name>/`](.grok/skills/)
+- Those facades must point at or wrap the shared skill under `.agents/skills/`; they must not duplicate the skill body.
 
-## Python
+## Implementation
 
-- Type hints on public functions and on the connector interface.
-- Separate modules for orchestration, connectors, agent roles, and config loading.
-- Prefer the standard library. Add a dependency when the standard library cannot do the job cleanly.
-- Keep secrets and tokens out of the tree.
-
-## Tests
-
-- Use pytest once a suite exists.
-- Exercise connector boundaries with fakes so the default run needs no network and no GitHub account.
-- When orchestration or config loading changes, cover the change with an offline test.
+- Language, dependencies, secrets, and tests: [`spec/adr/002-1-tech-stack-and-dependencies.md`](spec/adr/002-1-tech-stack-and-dependencies.md).
+- Package and module layout: [`spec/adr/001-1-process-model-and-module-layout.md`](spec/adr/001-1-process-model-and-module-layout.md).
 
 ## License
 

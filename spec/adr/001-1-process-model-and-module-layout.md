@@ -43,7 +43,7 @@ Orkie is a long-running orchestrator (features [05](../feature/05-agent-orchestr
 - Sync orchestration keeps claim-then-spawn and swarm-fit ordering easy to reason about and test with fakes.
 - Threads are enough for a loopback UI and stdio drains without forcing every connector call into async.
 - One lock is enough for a dashboard thread to enter the sync cycle. A queue would be a second concurrency mechanism.
-- Explicit modules match AGENTS.md (orchestration, connectors, config) and map to ADRs 003–012.
+- Explicit modules (orchestration, connectors, config, and the rest of the table above) map to ADRs 003–012.
 
 ## Rejected alternatives
 
