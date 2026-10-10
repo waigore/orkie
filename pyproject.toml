@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orkie"
+version = "0.1.0"
+description = "Python orchestrator that spawns AI agents for roles defined in a project .orkie directory"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.11"
+authors = [{ name = "Orkie contributors" }]
+dependencies = [
+    "PyYAML",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+]
+test = [
+    "pytest",
+    "pytest-cov",
+]
+
+[project.scripts]
+orkie = "orkie.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["orkie*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "--strict-markers",
+]
+markers = [
+    "integration: temp-git or real-subprocess cases; default suite stays offline",
+]
+
+[tool.coverage.run]
+source = ["orkie"]
+branch = false
+omit = [
+    "orkie/__main__.py",
+]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_empty = true

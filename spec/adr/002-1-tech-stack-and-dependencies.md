@@ -8,7 +8,7 @@ Supersedes [002](superseded/002-tech-stack-and-dependencies.md).
 
 ## Context
 
-Orkie prefers the standard library and allows a dependency only when stdlib cannot do the job cleanly. Features require YAML config, GitHub HTTP, ACP over stdio, git worktrees, a loopback dashboard, and pytest-backed offline tests. Component design needs an approved stack and an explicit deny list so implementers do not pull frameworks ad hoc. Coding conventions for Python live here (not in [AGENTS.md](../../AGENTS.md)).
+Orkie prefers the standard library and allows a dependency only when stdlib cannot do the job cleanly. Features require YAML config, GitHub HTTP, ACP over stdio, git worktrees, a loopback dashboard, and pytest-backed offline tests. Component design needs an approved stack and an explicit deny list so implementers do not pull frameworks ad hoc. Language, dependency, and test locks live here. Module structure, layering, and static style live in [design conventions](../design/conventions.md), not in [AGENTS.md](../../AGENTS.md).
 
 ## Decision
 
@@ -47,6 +47,7 @@ Orkie prefers the standard library and allows a dependency only when stdlib cann
 | Coverage focus | When orchestration or config loading changes, cover the change with an offline test that fails without the change |
 | Coverage omit | Sparingly: `__main__` re-export, pure version string, unreachable `assert_never`-style arms — not business logic |
 | Extra pytest plugins | None beyond pytest-cov unless this ADR is updated first |
+| Live integrated acceptance | Documented under [`spec/testing/`](../testing/); manual or scheduled; uses a designated GitHub test repository and a real ACP agent. **Not** part of default CI or the ≥80% coverage gate. May force-reset that repo’s `main` and clear issues as preparation. Do not pull live GitHub or real ACP into the default pytest suite without updating this ADR |
 
 #### Package test expectations
 
@@ -120,3 +121,5 @@ Allowed only when stdlib cannot do the job cleanly. Update this ADR (or supersed
 - `orkie.connectors.fake` and `orkie.acp.fake` are first-class modules for the offline suite ([001-2](001-2-process-model-and-module-layout.md), [components](../design/components.md)).
 - CI and local tests run offline with fakes; CI enforces ≥80% line coverage of `orkie/` once the suite exists.
 - Test layout and markers follow the Test / dev section above; integration cases stay hermetic (temp git only, no GitHub).
+- Live integrated acceptance is specified in [`spec/testing/`](../testing/) and stays out of the default CI coverage gate.
+- Module-level coding conventions are [spec/design/conventions.md](../design/conventions.md). They bind how the package is written. They do not add dependencies or product behavior.

@@ -21,8 +21,8 @@ flowchart LR
 |-------|------|
 | [`spec/feature/`](../feature/) | Product behavior, stories, acceptance criteria, vocabulary |
 | [`spec/adr/`](../adr/) | Process model, modules, libraries, locked flows |
-| [`spec/design/`](./) | Implementable interfaces, schemas, sequences, UI, config shape |
-| Code | Implementation that matches this design |
+| [`spec/design/`](./) | Implementable interfaces, schemas, sequences, UI, config shape, coding conventions |
+| Code | Implementation that matches this design and its [conventions](conventions.md) |
 
 ## Catalog
 
@@ -33,6 +33,7 @@ flowchart LR
 | [data.md](data.md) | On-disk and in-memory structures, ownership, readers |
 | [ui.md](ui.md) | CLI surface and dashboard pages, navigation, CTAs |
 | [config.md](config.md) | Configurable fields, YAML shape, defaults, precedence |
+| [conventions.md](conventions.md) | How to write the package: layering, static control flow, pure decisions, test seams |
 
 ## Reading order
 
@@ -41,6 +42,7 @@ flowchart LR
 3. [data.md](data.md) — what is stored where
 4. [sequences.md](sequences.md) — who calls whom
 5. [ui.md](ui.md) — operator and dashboard surfaces
+6. [conventions.md](conventions.md) — how to implement the package
 
 Companion product docs: [vocabulary](../feature/vocabulary.md), [users](../feature/users.md), [dependencies](../feature/dependencies.md). ADR catalog: [spec/adr/README.md](../adr/README.md).
 
@@ -57,12 +59,14 @@ Companion product docs: [vocabulary](../feature/vocabulary.md), [users](../featu
 | [07 PR babysitter](../feature/07-pr-babysitter.md) | components (`orchestration`), sequences (babysitter), data |
 | [08 CLI and dashboard](../feature/08-cli-and-dashboard.md) | ui, components (`cli`, `dashboard`), sequences (shutdown) |
 
+[conventions.md](conventions.md) applies to the implementation of every feature.
+
 ## ADR coverage
 
 | ADR | Design files |
 |-----|--------------|
-| [001 Process and modules](../adr/001-2-process-model-and-module-layout.md) | components, README |
-| [002 Tech stack](../adr/002-1-tech-stack-and-dependencies.md) | components, config, ui |
+| [001 Process and modules](../adr/001-2-process-model-and-module-layout.md) | components, conventions, README |
+| [002 Tech stack](../adr/002-1-tech-stack-and-dependencies.md) | components, config, ui, conventions |
 | [003 Bootstrap](../adr/003-2-config-load-and-bootstrap-sequence.md) | sequences, components (`cli`, `config`), config |
 | [004 Local state](../adr/004-2-local-state-format-and-process-lock.md) | data, components (`state`) |
 | [005 Connector](../adr/005-2-connector-interface-and-github-client.md) | components (`connectors`) |
