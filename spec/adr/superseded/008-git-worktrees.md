@@ -2,11 +2,11 @@
 
 ## Status
 
-Superseded by [008-1](008-1-git-worktrees.md).
+Superseded by [008-1](../008-1-git-worktrees.md).
 
 ## Context
 
-Feature [05](../feature/05-agent-orchestration.md#worktrees) requires a dedicated git worktree per session so concurrent agents do not share a checkout. The babysitter ([07](../feature/07-pr-babysitter.md)) uses the same policy. Design needs location, base revision, tooling, and cleanup triggers.
+Feature [05](../../feature/05-agent-orchestration.md#worktrees) requires a dedicated git worktree per session so concurrent agents do not share a checkout. The babysitter ([07](../../feature/07-pr-babysitter.md)) uses the same policy. Design needs location, base revision, tooling, and cleanup triggers.
 
 ## Decision
 
@@ -37,7 +37,7 @@ Store `worktree_path` on the session record when created.
 
 ### Agent cwd
 
-ACP child `cwd` is the worktree path ([006](006-acp-agent-runtime.md)). Orkie does not share the primary project checkout as a writable agent workspace for sessions.
+ACP child `cwd` is the worktree path ([006](../006-acp-agent-runtime.md)). Orkie does not share the primary project checkout as a writable agent workspace for sessions.
 
 ## Reasoning
 

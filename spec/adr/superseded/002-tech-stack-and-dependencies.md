@@ -2,11 +2,11 @@
 
 ## Status
 
-Superseded by [002-1](002-1-tech-stack-and-dependencies.md).
+Superseded by [002-1](../002-1-tech-stack-and-dependencies.md).
 
 ## Context
 
-[AGENTS.md](../../AGENTS.md) prefers the standard library and allows a dependency only when stdlib cannot do the job cleanly. Features require YAML config, GitHub HTTP, ACP over stdio, git worktrees, a loopback dashboard, and pytest-backed offline tests. Component design needs an approved stack and an explicit deny list so implementers do not pull frameworks ad hoc.
+[AGENTS.md](../../../AGENTS.md) prefers the standard library and allows a dependency only when stdlib cannot do the job cleanly. Features require YAML config, GitHub HTTP, ACP over stdio, git worktrees, a loopback dashboard, and pytest-backed offline tests. Component design needs an approved stack and an explicit deny list so implementers do not pull frameworks ad hoc.
 
 ## Decision
 
@@ -75,5 +75,5 @@ Allowed only when stdlib cannot do the job cleanly. Update this ADR (or supersed
 
 - `pyproject.toml` runtime deps: PyYAML only (plus pytest in dev/test extras).
 - `orkie.connectors.github` owns URL building, pagination, auth header, and JSON parsing.
-- `orkie.acp` owns message framing and method names; document OpenCode and Grok Build command lines only as first-class examples ([006](006-acp-agent-runtime.md)).
+- `orkie.acp` owns message framing and method names; document OpenCode and Grok Build command lines only as first-class examples ([006](../006-acp-agent-runtime.md)).
 - CI and local tests run offline with fakes.

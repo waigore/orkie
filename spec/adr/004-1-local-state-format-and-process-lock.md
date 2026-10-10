@@ -4,7 +4,7 @@
 
 Accepted
 
-Supersedes [004](004-local-state-format-and-process-lock.md).
+Supersedes [004](superseded/004-local-state-format-and-process-lock.md).
 
 ## Context
 

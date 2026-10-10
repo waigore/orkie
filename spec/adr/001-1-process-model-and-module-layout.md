@@ -4,7 +4,7 @@
 
 Accepted
 
-Supersedes [001](001-process-model-and-module-layout.md).
+Supersedes [001](superseded/001-process-model-and-module-layout.md).
 
 ## Context
 

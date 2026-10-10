@@ -4,7 +4,7 @@
 
 Accepted
 
-Supersedes [012](012-dashboard-stack-and-control-api.md).
+Supersedes [012](superseded/012-dashboard-stack-and-control-api.md).
 
 ## Context
 

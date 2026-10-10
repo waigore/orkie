@@ -2,11 +2,11 @@
 
 ## Status
 
-Superseded by [003-1](003-1-config-load-and-bootstrap-sequence.md).
+Superseded by [003-1](../003-1-config-load-and-bootstrap-sequence.md).
 
 ## Context
 
-Feature [01](../feature/01-project-bootstrap-and-config.md) defines config schema, interactive default scaffold, and non-interactive fail-hard behavior. Feature [03](../feature/03-connector-interface-and-github.md) defines privilege probes. Feature [08](../feature/08-cli-and-dashboard.md) starts the process. Implementers need a single ordered bootstrap sequence so prompts, hard fails, and side effects (scaffold write, label create, lock) never race or prompt in the wrong mode.
+Feature [01](../../feature/01-project-bootstrap-and-config.md) defines config schema, interactive default scaffold, and non-interactive fail-hard behavior. Feature [03](../../feature/03-connector-interface-and-github.md) defines privilege probes. Feature [08](../../feature/08-cli-and-dashboard.md) starts the process. Implementers need a single ordered bootstrap sequence so prompts, hard fails, and side effects (scaffold write, label create, lock) never race or prompt in the wrong mode.
 
 ## Decision
 

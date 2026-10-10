@@ -34,25 +34,31 @@ Companion feature docs: [vocabulary](../feature/vocabulary.md), [users](../featu
 
 Every ADR file uses the same sections (lean, feature-spec style):
 
-1. **Status** — `Proposed` / `Accepted` / `Superseded` (link the successor when superseded; successor links back to the superseded file)
+1. **Status** — `Proposed` / `Accepted` / `Superseded` (superseded files live under [`superseded/`](superseded/); link successor ↔ predecessor in Status)
 2. **Context** — why a decision is needed; link features
 3. **Decision** — what we chose, including libraries and APIs when relevant
 4. **Reasoning** — why
 5. **Rejected alternatives** — notable options and why not
 6. **Consequences for design** — modules, flows, states, and sequences this ADR implies
 
-## Naming
+## Naming and layout
 
+- **Current ADRs** live directly under [`spec/adr/`](./). Only `Proposed` or `Accepted` files belong here (plus this README).
 - **New decision:** `NNN-short-kebab-title.md` (three-digit sequence). Example: `001-process-model-and-module-layout.md`.
-- **Supersession:** keep the **same** `NNN` and append a revision suffix `-1`, `-2`, … before the title. Do **not** mint a new sequence number for a replacement; that would pollute the catalog with parallel ids for one decision slot.
+- **Supersession:** keep the **same** `NNN` and append a revision suffix `-1`, `-2`, … before the title. Do **not** mint a new sequence number for a replacement.
+- **Superseded ADRs** move to [`superseded/`](superseded/). They keep their filename. The previous current file is moved there when its successor is accepted; it does not remain beside the current file in `spec/adr/`.
 
-| Role | Example |
-|------|---------|
-| Original (then `Superseded`) | `002-tech-stack-and-dependencies.md` |
-| First replacement (`Accepted`) | `002-1-tech-stack-and-dependencies.md` |
-| Second replacement | `002-2-….md` |
+| Role | Location | Example |
+|------|----------|---------|
+| Original (then `Superseded`) | `superseded/` | `superseded/002-tech-stack-and-dependencies.md` |
+| First replacement (`Accepted`) | `spec/adr/` | `002-1-tech-stack-and-dependencies.md` |
+| Second replacement | `spec/adr/` (prior `-1` moves to `superseded/`) | `002-2-….md` |
 
-The catalog index lists the **current** Accepted (or Proposed) file for each `NNN`. Superseded files stay on disk and remain linked from Status; they are not given a new catalog row with a fresh sequence.
+The catalog index lists only the **current** file for each `NNN`. Superseded files are not catalog rows; they stay readable under `superseded/` and are linked from Status.
+
+### Linking
+
+Anything under `spec/adr/*.md` (except history links) is current — link those files (or the [catalog](#catalog)). Do not link into `superseded/` except for Status history (“Supersedes …” / “Superseded by …”). After a supersession, move the old file into `superseded/`, point Status both ways, update the catalog row, and fix outbound links in other current ADRs and docs.
 
 ## Catalog
 
@@ -116,5 +122,5 @@ flowchart LR
 
 - **Clarify before drafting new ADRs.** New catalog entries are written only after Context, Decision, Rejected alternatives, and Consequences are agreed with the operator. Status starts as `Proposed` until accepted in that conversation.
 - **Change the owning ADR** when a design decision changes. Keep this catalog and feature links current.
-- **Supersede, do not silently rewrite.** When an Accepted decision's intent changes: write `NNN-<k>-….md` (next unused revision for that `NNN`), mark the previous file `Superseded` with a link to the successor, leave the old text readable, and point the catalog row at the new file. Never assign the next free sequence (`013`, …) for a supersession.
+- **Supersede, do not silently rewrite.** When an Accepted decision's intent changes: write `NNN-<k>-….md` in `spec/adr/`, move the previous current file into `superseded/`, mark it `Superseded` with a link to the successor (and “Supersedes …” on the new file), leave the old text readable, and point the catalog row at the new file. Never assign the next free sequence (`013`, …) for a supersession.
 - **Prefer extending an existing ADR** when the change belongs to the same decision boundary. Assign a **new sequence** (`NNN`) only for a distinct architectural choice that is not replacing an existing ADR.

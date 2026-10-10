@@ -4,7 +4,7 @@
 
 Accepted
 
-Supersedes [002](002-tech-stack-and-dependencies.md).
+Supersedes [002](superseded/002-tech-stack-and-dependencies.md).
 
 ## Context
 

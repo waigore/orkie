@@ -4,7 +4,7 @@
 
 Accepted
 
-Supersedes [009](009-intake-poll-and-delta.md).
+Supersedes [009](superseded/009-intake-poll-and-delta.md).
 
 ## Context
 

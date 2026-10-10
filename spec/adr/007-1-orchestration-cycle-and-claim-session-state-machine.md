@@ -4,7 +4,7 @@
 
 Accepted
 
-Supersedes [007](007-orchestration-cycle-and-claim-session-state-machine.md).
+Supersedes [007](superseded/007-orchestration-cycle-and-claim-session-state-machine.md).
 
 ## Context
 

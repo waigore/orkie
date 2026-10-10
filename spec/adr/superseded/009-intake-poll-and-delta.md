@@ -2,11 +2,11 @@
 
 ## Status
 
-Superseded by [009-1](009-1-intake-poll-and-delta.md).
+Superseded by [009-1](../009-1-intake-poll-and-delta.md).
 
 ## Context
 
-Feature [06](../feature/06-work-intake-and-issue-monitoring.md) defines intake eligibility, polling, snapshot comparison, and failure behavior. Feature [02](../feature/02-local-state.md) defines snapshot fields. Orchestration ([007](007-orchestration-cycle-and-claim-session-state-machine.md)) consumes the delta. Design needs fetch shape, delta algorithm, and handoff.
+Feature [06](../../feature/06-work-intake-and-issue-monitoring.md) defines intake eligibility, polling, snapshot comparison, and failure behavior. Feature [02](../../feature/02-local-state.md) defines snapshot fields. Orchestration ([007](007-orchestration-cycle-and-claim-session-state-machine.md)) consumes the delta. Design needs fetch shape, delta algorithm, and handoff.
 
 ## Decision
 

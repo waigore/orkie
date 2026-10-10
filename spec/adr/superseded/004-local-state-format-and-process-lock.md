@@ -2,11 +2,11 @@
 
 ## Status
 
-Superseded by [004-1](004-1-local-state-format-and-process-lock.md).
+Superseded by [004-1](../004-1-local-state-format-and-process-lock.md).
 
 ## Context
 
-Feature [02](../feature/02-local-state.md) defines the per-user state root, record fields, and log layout, but not serialization or lock mechanics. Orchestration, intake, dashboard, and shutdown all share this store ([05](../feature/05-agent-orchestration.md), [08](../feature/08-cli-and-dashboard.md)).
+Feature [02](../../feature/02-local-state.md) defines the per-user state root, record fields, and log layout, but not serialization or lock mechanics. Orchestration, intake, dashboard, and shutdown all share this store ([05](../../feature/05-agent-orchestration.md), [08](../../feature/08-cli-and-dashboard.md)).
 
 ## Decision
 

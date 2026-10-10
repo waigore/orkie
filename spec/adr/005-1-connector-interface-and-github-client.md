@@ -4,7 +4,7 @@
 
 Accepted
 
-Supersedes [005](005-connector-interface-and-github-client.md).
+Supersedes [005](superseded/005-connector-interface-and-github-client.md).
 
 ## Context
 

@@ -2,11 +2,11 @@
 
 ## Status
 
-Superseded by [001-1](001-1-process-model-and-module-layout.md).
+Superseded by [001-1](../001-1-process-model-and-module-layout.md).
 
 ## Context
 
-Orkie is a long-running orchestrator (features [05](../feature/05-agent-orchestration.md), [08](../feature/08-cli-and-dashboard.md)): intake poll, claim/spawn, optional babysitter, loopback dashboard, and ACP subprocesses must coexist in one process per GitHub repository. Component design needs a single process model and package map so modules do not invent their own concurrency or cross-import cycles.
+Orkie is a long-running orchestrator (features [05](../../feature/05-agent-orchestration.md), [08](../../feature/08-cli-and-dashboard.md)): intake poll, claim/spawn, optional babysitter, loopback dashboard, and ACP subprocesses must coexist in one process per GitHub repository. Component design needs a single process model and package map so modules do not invent their own concurrency or cross-import cycles.
 
 ## Decision
 
@@ -31,7 +31,7 @@ Orkie is a long-running orchestrator (features [05](../feature/05-agent-orchestr
 
 4. **Dependency direction.** `cli` → bootstrap (`config`, `state`, `connectors`) → continuous loop (`intake` → `orchestration` → `acp` / `worktree`). `dashboard` reads `state` and calls into `orchestration`/`acp` for controls. Connector and ACP types do not leak GitHub or agent SDK types into `orchestration` or `intake`.
 
-5. **No built-in role catalog package.** Agent behavior is config + prompts only ([AGENTS.md](../../AGENTS.md)).
+5. **No built-in role catalog package.** Agent behavior is config + prompts only ([AGENTS.md](../../../AGENTS.md)).
 
 ## Reasoning
 

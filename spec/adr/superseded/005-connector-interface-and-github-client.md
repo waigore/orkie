@@ -2,11 +2,11 @@
 
 ## Status
 
-Superseded by [005-1](005-1-connector-interface-and-github-client.md).
+Superseded by [005-1](../005-1-connector-interface-and-github-client.md).
 
 ## Context
 
-Feature [03](../feature/03-connector-interface-and-github.md) requires an abstract connector so intake and orchestration never embed GitHub HTTP. Features [06](../feature/06-work-intake-and-issue-monitoring.md) and [07](../feature/07-pr-babysitter.md) consume issue and PR reads. Design needs a typed sync interface, a GitHub implementation, and privilege probing without SDK leakage.
+Feature [03](../../feature/03-connector-interface-and-github.md) requires an abstract connector so intake and orchestration never embed GitHub HTTP. Features [06](../../feature/06-work-intake-and-issue-monitoring.md) and [07](../../feature/07-pr-babysitter.md) consume issue and PR reads. Design needs a typed sync interface, a GitHub implementation, and privilege probing without SDK leakage.
 
 ## Decision
 

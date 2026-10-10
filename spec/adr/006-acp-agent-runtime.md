@@ -33,7 +33,7 @@ prepare worktree -> start process -> ACP initialize/session -> grant full permis
 | Interrupt (dashboard) | Cancel current turn | Remains |
 | Kill (dashboard) | Terminate session/process | Released by orchestration |
 | Agent exit | Observe EOF/exit | Released by orchestration |
-| Shutdown | Terminate all sessions | Released per [011](011-cli-signals-and-process-lifecycle.md) |
+| Shutdown | Terminate all sessions | Released per [011-1](011-1-cli-signals-and-process-lifecycle.md) |
 
 v1 dashboard does not send follow-up prompts after interrupt.
 
@@ -43,19 +43,19 @@ Orkie grants **full permissions** for project work whenever ACP negotiates capab
 
 ### Logs and redaction
 
-Mirror ACP/log output into `logs/<agent_id>.log` with `session_id=` markers ([004](004-local-state-format-and-process-lock.md)). Never write the raw `GITHUB_TOKEN` value into logs or spawn-failure `error` text.
+Mirror ACP/log output into `logs/<agent_id>.log` with `session_id=` markers ([004-1](004-1-local-state-format-and-process-lock.md)). Never write the raw `GITHUB_TOKEN` value into logs or spawn-failure `error` text.
 
 ### Spawn failure
 
-If the process cannot start or ACP handshake/prompt fails: no working session; return error to orchestration for spawn-failure records and three-strike claim rules ([007](007-orchestration-cycle-and-claim-session-state-machine.md)). Spawn failure does not occupy a session slot.
+If the process cannot start or ACP handshake/prompt fails: no working session; return error to orchestration for spawn-failure records and three-strike claim rules ([007-1](007-1-orchestration-cycle-and-claim-session-state-machine.md)). Spawn failure does not occupy a session slot.
 
 ### Process groups
 
-Start agents in a new session/process group where the platform allows so shutdown can kill the group after the 30s grace ([011](011-cli-signals-and-process-lifecycle.md)).
+Start agents in a new session/process group where the platform allows so shutdown can kill the group after the 30s grace ([011-1](011-1-cli-signals-and-process-lifecycle.md)).
 
 ## Reasoning
 
-- In-tree ACP client matches “any ACP-compatible agent” and avoids vendor lock-in ([002](002-tech-stack-and-dependencies.md)).
+- In-tree ACP client matches “any ACP-compatible agent” and avoids vendor lock-in ([002-1](002-1-tech-stack-and-dependencies.md)).
 - Full permissions match feature 04; Orkie's job is orchestration, not sandboxing the coding agent.
 - Clear interrupt vs kill semantics keep claim labels stable during cooperative cancel.
 - UUID4 session ids are an ADR-level choice; the features require only a generated id that is unique per spawn.
@@ -74,4 +74,4 @@ Start agents in a new session/process group where the platform allows so shutdow
 - `orkie.orchestration` calls `acp.spawn` / `interrupt` / `kill` and owns claim release on kill/exit.
 - Live handles live in an in-memory session table keyed by `session_id`; disk `working` is informational after restart (always cleared on start).
 - Tests fake the ACP client at the `orkie.acp` boundary.
-- Worktree path is an input to spawn; ACP module does not create worktrees ([008](008-git-worktrees.md)).
+- Worktree path is an input to spawn; ACP module does not create worktrees ([008-1](008-1-git-worktrees.md)).

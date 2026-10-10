@@ -4,7 +4,7 @@
 
 Accepted
 
-Supersedes [010](010-pr-babysitter-lifecycle.md).
+Supersedes [010](superseded/010-pr-babysitter-lifecycle.md).
 
 ## Context
 

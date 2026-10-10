@@ -4,7 +4,7 @@
 
 Accepted
 
-Supersedes [011](011-cli-signals-and-process-lifecycle.md).
+Supersedes [011](superseded/011-cli-signals-and-process-lifecycle.md).
 
 ## Context
 

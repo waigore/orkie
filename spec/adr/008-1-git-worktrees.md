@@ -4,7 +4,7 @@
 
 Accepted
 
-Supersedes [008](008-git-worktrees.md).
+Supersedes [008](superseded/008-git-worktrees.md).
 
 ## Context
 

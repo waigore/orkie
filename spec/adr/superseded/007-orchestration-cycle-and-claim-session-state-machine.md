@@ -2,11 +2,11 @@
 
 ## Status
 
-Superseded by [007-1](007-1-orchestration-cycle-and-claim-session-state-machine.md).
+Superseded by [007-1](../007-1-orchestration-cycle-and-claim-session-state-machine.md).
 
 ## Context
 
-Feature [05](../feature/05-agent-orchestration.md) defines claim-then-spawn, swarm-fit, caps, 1:0–1 mapping, and three-strike spawn failures. Intake ([06](../feature/06-work-intake-and-issue-monitoring.md), [009](009-intake-poll-and-delta.md)) supplies deltas. Local state ([02](../feature/02-local-state.md), [004](004-local-state-format-and-process-lock.md)) stores claims and sessions. Component design needs one cycle order and explicit state machines.
+Feature [05](../../feature/05-agent-orchestration.md) defines claim-then-spawn, swarm-fit, caps, 1:0–1 mapping, and three-strike spawn failures. Intake ([06](../../feature/06-work-intake-and-issue-monitoring.md), [009](009-intake-poll-and-delta.md)) supplies deltas. Local state ([02](../../feature/02-local-state.md), [004](004-local-state-format-and-process-lock.md)) stores claims and sessions. Component design needs one cycle order and explicit state machines.
 
 ## Decision
 

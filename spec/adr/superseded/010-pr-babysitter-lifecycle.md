@@ -2,11 +2,11 @@
 
 ## Status
 
-Superseded by [010-1](010-1-pr-babysitter-lifecycle.md).
+Superseded by [010-1](../010-1-pr-babysitter-lifecycle.md).
 
 ## Context
 
-Feature [07](../feature/07-pr-babysitter.md) defines an optional single babysitter session bound to one selectable blocked PR. It must not use issue claims or issue session caps, and Orkie must not merge PRs. Orchestration ([007](007-orchestration-cycle-and-claim-session-state-machine.md)) needs a clear step after issue work.
+Feature [07](../../feature/07-pr-babysitter.md) defines an optional single babysitter session bound to one selectable blocked PR. It must not use issue claims or issue session caps, and Orkie must not merge PRs. Orchestration ([007](007-orchestration-cycle-and-claim-session-state-machine.md)) needs a clear step after issue work.
 
 ## Decision
 
@@ -31,7 +31,7 @@ Pick the selectable blocked PR with the **lowest PR number**. Idle (no spawn) wh
 
 - New `session_id`; bind `pr_number` only (no issue claim label).
 - Substitute only PR prompt variables from feature 01.
-- Dedicated worktree ([008](008-git-worktrees.md)); full ACP permissions ([006](006-acp-agent-runtime.md)).
+- Dedicated worktree ([008](008-git-worktrees.md)); full ACP permissions ([006](../006-acp-agent-runtime.md)).
 - Does not consume issue session caps.
 
 ### Stop and respawn

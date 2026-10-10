@@ -16,6 +16,7 @@ GitHub is the supported platform. Further task trackers and version-control host
 - Core orchestration and agent roles depend on that interface, so another host can be added without rewriting them.
 - A project with a `.orkie` directory runs out of the box. The GitHub connector takes its token from the `GITHUB_TOKEN` environment variable.
 - Extend an existing connector, role, or config field when the behavior belongs there.
+- Design decisions live in [`spec/adr/`](spec/adr/). Files in that directory are current; superseded ADRs live under [`spec/adr/superseded/`](spec/adr/superseded/). When linking an ADR, use the current file (see the catalog in [`spec/adr/README.md`](spec/adr/README.md)), not anything under `superseded/`.
 
 ## Python
 
