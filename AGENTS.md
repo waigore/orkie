@@ -19,6 +19,12 @@ GitHub is the supported platform. Further task trackers and version-control host
 - Design decisions live in [`spec/adr/`](spec/adr/). Files in that directory are current; superseded ADRs live under [`spec/adr/superseded/`](spec/adr/superseded/). When linking an ADR, use the current file (see the catalog in [`spec/adr/README.md`](spec/adr/README.md)), not anything under `superseded/`.
 - Implementable component, sequence, data, UI, and config design lives in [`spec/design/`](spec/design/).
 
+## Skills
+
+- Project-related skills live under [`.agents/skills/`](.agents/skills/), one folder per skill. That layout keeps skill selection and execution vendor-neutral.
+- Put the skill definition and content (instructions, scripts, references, assets) in that folder. Do not treat any coding agent's native skills path as the source of truth.
+- To let different coding agents (Cursor, OpenCode, Grok, and others) load skills natively, still create thin facades via each agent's native mechanism. Those facades should point at or wrap the shared skill under `.agents/skills/`; they must not duplicate the skill body.
+
 ## Python
 
 - Type hints on public functions and on the connector interface.
