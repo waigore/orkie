@@ -2,6 +2,8 @@
 
 Feature-level product specs for architecture planning. Use them to agree behavior before implementation. This README only explains how to read and change the set.
 
+Implementable module APIs, sequences, data schemas, UI, and config shape live in [`spec/design/`](../design/) (after features and [ADRs](../adr/)).
+
 ## Companion docs
 
 | Doc | Role |
@@ -9,6 +11,7 @@ Feature-level product specs for architecture planning. Use them to agree behavio
 | [vocabulary.md](vocabulary.md) | Shared terms. Link here; do not restate full definitions in feature files. |
 | [users.md](users.md) | Shared actors. Feature files keep use cases only; user definitions live here. |
 | [dependencies.md](dependencies.md) | Cross-feature dependency graph and per-feature depends-on list. |
+| [../design/](../design/) | Design: components, sequences, data, UI, config for implementation. |
 
 Canonical detail that other specs should link to (not copy):
 

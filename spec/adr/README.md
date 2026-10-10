@@ -25,8 +25,9 @@ Apply these when choosing among alternatives and when writing Consequences for d
 |-------|------|
 | [`spec/feature/`](../feature/) | What Orkie does for users; vocabulary; acceptance criteria |
 | [`spec/adr/`](./) | How Orkie is built: process model, modules, sequences, libraries |
+| [`spec/design/`](../design/) | Implementable detail: interfaces, schemas, UI, config shape |
 
-ADRs cite owning features. They do not restate acceptance criteria. When product behavior changes, update the feature first, then the owning ADR.
+ADRs cite owning features. They do not restate acceptance criteria. When product behavior changes, update the feature first, then the owning ADR, then [design](../design/) when implementable detail changes.
 
 Companion feature docs: [vocabulary](../feature/vocabulary.md), [users](../feature/users.md), [dependencies](../feature/dependencies.md).
 
