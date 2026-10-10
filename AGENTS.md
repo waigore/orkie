@@ -20,7 +20,7 @@ When adding or updating a skill, also update thin facades under `.cursor/skills/
 
 ## Implementation
 
-Language, dependencies, secrets, and tests: [ADR 002](spec/adr/002-1-tech-stack-and-dependencies.md). Package layout: [ADR 001](spec/adr/001-2-process-model-and-module-layout.md). Conventions: [`spec/design/conventions.md`](spec/design/conventions.md).
+Language, dependencies, secrets, and tests: [ADR 002](spec/adr/002-2-tech-stack-and-dependencies.md). Package layout: [ADR 001](spec/adr/001-2-process-model-and-module-layout.md). Conventions: [`spec/design/conventions.md`](spec/design/conventions.md).
 Offline unit tests: [`tests/`](tests/) (see [`tests/README.md`](tests/README.md)); live acceptance is out of band under [`spec/testing/`](spec/testing/).
 
 ## License

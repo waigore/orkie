@@ -11,6 +11,7 @@ requires-python = ">=3.11"
 authors = [{ name = "Orkie contributors" }]
 dependencies = [
     "PyYAML",
+    "Jinja2",
 ]
 
 [project.optional-dependencies]
@@ -28,6 +29,9 @@ orkie = "orkie.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["orkie*"]
+
+[tool.setuptools.package-data]
+orkie = ["templates/**/*.html", "static/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

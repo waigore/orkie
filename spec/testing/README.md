@@ -1,6 +1,6 @@
 # Orkie Testing Specs
 
-Standalone testing documents for Orkie. This layer sits beside [features](../feature/), [ADRs](../adr/), and [design](../design/). It does not redefine product behavior or replace the offline unit suite locked in [ADR 002-1](../adr/002-1-tech-stack-and-dependencies.md).
+Standalone testing documents for Orkie. This layer sits beside [features](../feature/), [ADRs](../adr/), and [design](../design/). It does not redefine product behavior or replace the offline unit suite locked in [ADR 002-2](../adr/002-2-tech-stack-and-dependencies.md).
 
 ## Tiers
 
@@ -19,7 +19,7 @@ Live acceptance is manual or scheduled. It is credentialed, destructive to the d
 
 ## Reading order
 
-1. [ADR 002-1](../adr/002-1-tech-stack-and-dependencies.md) — offline test stack and what CI runs
+1. [ADR 002-2](../adr/002-2-tech-stack-and-dependencies.md) — offline test stack and what CI runs
 2. [01-integrated-acceptance.md](01-integrated-acceptance.md) — live acceptance scenario
 3. Owning features for claim/spawn/intake behavior: [05](../feature/05-agent-orchestration.md), [06](../feature/06-work-intake-and-issue-monitoring.md), [03](../feature/03-connector-interface-and-github.md)
 

@@ -78,6 +78,14 @@ def test_loopback_get_agents(tmp_path: Path) -> None:
             f"http://127.0.0.1:{ctx.dashboard_port}/agents"
         ) as resp:
             body = resp.read().decode()
+            assert "text/html" in resp.headers.get("Content-Type", "")
         assert "Agents" in body
+        assert "/static/dashboard.css" in body
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{ctx.dashboard_port}/static/dashboard.css"
+        ) as resp:
+            css = resp.read()
+            assert "text/css" in resp.headers.get("Content-Type", "")
+        assert b"--accent" in css
     finally:
         stop_dashboard(ctx)

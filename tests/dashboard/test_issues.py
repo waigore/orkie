@@ -106,12 +106,14 @@ def test_issues_empty_snapshot(tmp_path: Path) -> None:
 
 def test_get_issues_and_index(tmp_path: Path) -> None:
     ctx = _ctx(tmp_path)
-    status, body, _ = handle_http(ctx, method="GET", path="/issues", referer=None)
+    status, body, _, ctype = handle_http(ctx, method="GET", path="/issues", referer=None)
     assert status == 200
+    assert "text/html" in ctype
     assert "Issues" in body
-    status, body, _ = handle_http(ctx, method="GET", path="/", referer=None)
+    status, body, _, ctype = handle_http(ctx, method="GET", path="/", referer=None)
     assert status == 200
     assert "Orkie" in body
+    assert "/static/dashboard.css" in body
 
 
 def test_bind_and_stop_dashboard(tmp_path: Path) -> None:

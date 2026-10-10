@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Agents · Orkie{% endblock %}
+{% block content %}
+<h1>Agents</h1>
+{% if not view.sessions %}
+<p class="empty">No working sessions.</p>
+{% else %}
+<div class="table-wrap">
+  <table>
+    <tr>
+      <th>Config id</th>
+      <th>Name</th>
+      <th>Session</th>
+      <th>Work</th>
+      <th>Status</th>
+      <th>Actions</th>
+    </tr>
+    {% for session in view.sessions %}
+    <tr>
+      <td>{{ session.agent_id }}</td>
+      <td>{{ session.agent_name }}</td>
+      <td><a href="#session-{{ session.session_id }}">{{ session.session_id }}</a></td>
+      <td>{{ session.bound_work }}</td>
+      <td>working</td>
+      <td>
+        <div class="actions">
+          <form class="inline" method="post" action="/sessions/{{ session.session_id }}/interrupt">
+            <button type="submit">Interrupt</button>
+          </form>
+          <form class="inline" method="post" action="/sessions/{{ session.session_id }}/kill">
+            <button class="danger" type="submit">Kill</button>
+          </form>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% for session in view.sessions %}
+<h2 id="session-{{ session.session_id }}">Log {{ session.session_id }}</h2>
+{% if not session.log_lines %}
+<p class="empty">No log lines for this session yet.</p>
+{% else %}
+<pre class="log">{{ session.log_lines | join("\n") }}</pre>
+{% endif %}
+{% endfor %}
+{% endif %}
+
+<h2>Spawn failures</h2>
+{% if not view.failures %}
+<p class="empty">No spawn failures recorded.</p>
+{% else %}
+<div class="table-wrap">
+  <table>
+    <tr>
+      <th>Agent</th>
+      <th>Work</th>
+      <th>Attempt</th>
+      <th>Released</th>
+      <th>Error</th>
+      <th>At</th>
+    </tr>
+    {% for failure in view.failures %}
+    <tr{% if failure.released %} class="warn"{% endif %}>
+      <td>{{ failure.agent_name }} ({{ failure.agent_id }})</td>
+      <td>
+        {% if failure.issue_number is not none %}
+        issue #{{ failure.issue_number }}
+        {% else %}
+        PR #{{ failure.pr_number }}
+        {% endif %}
+      </td>
+      <td>{{ failure.attempt }}</td>
+      <td>
+        {% if failure.released %}
+        yes local claim dropped after three spawn failures
+        {% else %}
+        no
+        {% endif %}
+      </td>
+      <td>{{ failure.error }}</td>
+      <td>{{ failure.at }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+{% endblock %}

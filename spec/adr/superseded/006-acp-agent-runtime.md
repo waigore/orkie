@@ -53,7 +53,7 @@ Start agents in a new session/process group where the platform allows so shutdow
 
 ## Reasoning
 
-- In-tree ACP client matches “any ACP-compatible agent” and avoids vendor lock-in ([002-1](../002-1-tech-stack-and-dependencies.md)).
+- In-tree ACP client matches “any ACP-compatible agent” and avoids vendor lock-in ([002-1](002-1-tech-stack-and-dependencies.md)).
 - Full permissions match feature 04; Orkie's job is orchestration, not sandboxing the coding agent.
 - Clear interrupt vs kill semantics keep claim labels stable during cooperative cancel.
 - UUID4 session ids are an ADR-level choice; the features require only a generated id that is unique per spawn.

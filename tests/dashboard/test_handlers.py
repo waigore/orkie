@@ -100,7 +100,7 @@ def test_build_agents_view_and_kill_404(tmp_path: Path) -> None:
     ctx = _ctx(tmp_path)
     view = build_agents_view(ctx)
     assert view.sessions == []
-    status, body, redirect = handle_http(
+    status, body, redirect, _ctype = handle_http(
         ctx, method="POST", path="/sessions/missing/kill", referer="/agents"
     )
     assert status == 404
@@ -110,7 +110,7 @@ def test_build_agents_view_and_kill_404(tmp_path: Path) -> None:
 def test_interrupt_unknown_and_shutdown_503(tmp_path: Path) -> None:
     ctx = _ctx(tmp_path)
     ctx.shutdown_event.set()
-    status, _, _ = handle_http(
+    status, _, _, _ = handle_http(
         ctx, method="POST", path="/sessions/x/interrupt", referer=None
     )
     assert status == 503
@@ -118,10 +118,36 @@ def test_interrupt_unknown_and_shutdown_503(tmp_path: Path) -> None:
 
 def test_get_agents_ok(tmp_path: Path) -> None:
     ctx = _ctx(tmp_path)
-    status, body, redirect = handle_http(ctx, method="GET", path="/agents", referer=None)
+    status, body, redirect, ctype = handle_http(
+        ctx, method="GET", path="/agents", referer=None
+    )
     assert status == 200
     assert redirect is None
+    assert "text/html" in ctype
     assert "Agents" in body
+
+
+def test_static_css_ok(tmp_path: Path) -> None:
+    ctx = _ctx(tmp_path)
+    status, body, redirect, ctype = handle_http(
+        ctx, method="GET", path="/static/dashboard.css", referer=None
+    )
+    assert status == 200
+    assert redirect is None
+    assert ctype.startswith("text/css")
+    assert isinstance(body, bytes)
+    assert b"--accent" in body
+
+
+def test_static_path_traversal_rejected(tmp_path: Path) -> None:
+    ctx = _ctx(tmp_path)
+    status, body, redirect, ctype = handle_http(
+        ctx, method="GET", path="/static/../dashboard.py", referer=None
+    )
+    assert status == 404
+    assert redirect is None
+    assert "text/plain" in ctype
+    assert body == "not found"
 
 
 def test_session_view_in_render() -> None:

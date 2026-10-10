@@ -2,7 +2,7 @@
 
 Live, system-level acceptance of Orkie against a designated GitHub fixture repository. This document defines purpose, methods, preparation, and pass criteria. It does not implement harness scripts; those follow this contract.
 
-Related: offline suite and CI gate in [ADR 002-1](../adr/002-1-tech-stack-and-dependencies.md); claim/spawn/exit in [feature 05](../feature/05-agent-orchestration.md); intake in [feature 06](../feature/06-work-intake-and-issue-monitoring.md); token and privileges in [feature 03](../feature/03-connector-interface-and-github.md).
+Related: offline suite and CI gate in [ADR 002-2](../adr/002-2-tech-stack-and-dependencies.md); claim/spawn/exit in [feature 05](../feature/05-agent-orchestration.md); intake in [feature 06](../feature/06-work-intake-and-issue-monitoring.md); token and privileges in [feature 03](../feature/03-connector-interface-and-github.md).
 
 ## Test purpose
 

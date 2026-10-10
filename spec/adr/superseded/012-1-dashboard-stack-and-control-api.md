@@ -1,12 +1,12 @@
 ## Status
 
-Superseded by [012-2](../012-2-dashboard-stack-and-control-api.md).
+Superseded by [012-2](012-2-dashboard-stack-and-control-api.md).
 
 Supersedes [012](012-dashboard-stack-and-control-api.md).
 
 ## Context
 
-Feature [08](../feature/08-cli-and-dashboard.md) requires a loopback web UI with agent and issue views, log display, spawn-failure visibility, and interrupt/kill controls. Feature [04](../feature/04-acp-agent-runtime.md) defines ACP interrupt vs kill. Design needs an HTTP stack, page model, and control API without a heavy web framework ([002-1](../002-1-tech-stack-and-dependencies.md)).
+Feature [08](../feature/08-cli-and-dashboard.md) requires a loopback web UI with agent and issue views, log display, spawn-failure visibility, and interrupt/kill controls. Feature [04](../feature/04-acp-agent-runtime.md) defines ACP interrupt vs kill. Design needs an HTTP stack, page model, and control API without a heavy web framework ([002-1](002-1-tech-stack-and-dependencies.md)).
 
 ## Decision
 

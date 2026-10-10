@@ -2,16 +2,25 @@
 
 from __future__ import annotations
 
-import html
+import mimetypes
 import re
 import threading
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from importlib import resources
+from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
+
+from jinja2 import Environment, PackageLoader, select_autoescape
 
 from orkie.orchestration import RuntimeContext
 from orkie.state import SpawnFailureRecord
+
+_ENV = Environment(
+    loader=PackageLoader("orkie", "templates"),
+    autoescape=select_autoescape(["html", "xml"]),
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,103 +136,35 @@ def build_issues_view(ctx: RuntimeContext) -> IssuesView:
     )
 
 
+def render_template(name: str, **context: Any) -> str:
+    return _ENV.get_template(name).render(**context)
+
+
 def render_index(repo: str, port: int) -> str:
-    return _page(
-        repo,
-        None,
-        "<h1>Orkie</h1>"
-        f"<p>Repository {html.escape(repo)}</p>"
-        f"<p>Dashboard http://127.0.0.1:{port}/</p>"
-        '<p><a href="/agents">Agent view</a> · <a href="/issues">Issue view</a></p>',
+    return render_template(
+        "index.html",
+        repo=repo,
+        port=port,
+        intake_error=None,
     )
 
 
 def render_agents(view: AgentsView) -> str:
-    body_parts = ["<h1>Agents</h1>"]
-    if not view.sessions:
-        body_parts.append("<p>No working sessions.</p>")
-    else:
-        body_parts.append(
-            "<table><tr><th>Config id</th><th>Name</th><th>Session</th>"
-            "<th>Work</th><th>Status</th><th>Actions</th></tr>"
-        )
-        for session in view.sessions:
-            body_parts.append(
-                "<tr>"
-                f"<td>{html.escape(session.agent_id)}</td>"
-                f"<td>{html.escape(session.agent_name)}</td>"
-                f"<td><a href=\"#session-{html.escape(session.session_id)}\">"
-                f"{html.escape(session.session_id)}</a></td>"
-                f"<td>{html.escape(session.bound_work)}</td>"
-                "<td>working</td>"
-                "<td>"
-                f'<form method="post" action="/sessions/{html.escape(session.session_id)}/interrupt">'
-                '<button type="submit">Interrupt</button></form> '
-                f'<form method="post" action="/sessions/{html.escape(session.session_id)}/kill">'
-                '<button type="submit">Kill</button></form>'
-                "</td></tr>"
-            )
-        body_parts.append("</table>")
-        for session in view.sessions:
-            body_parts.append(
-                f'<h2 id="session-{html.escape(session.session_id)}">'
-                f"Log {html.escape(session.session_id)}</h2>"
-            )
-            if not session.log_lines:
-                body_parts.append("<p>No log lines for this session yet.</p>")
-            else:
-                escaped = "\n".join(html.escape(line) for line in session.log_lines)
-                body_parts.append(f"<pre>{escaped}</pre>")
-    body_parts.append("<h2>Spawn failures</h2>")
-    if not view.failures:
-        body_parts.append("<p>No spawn failures recorded.</p>")
-    else:
-        body_parts.append(
-            "<table><tr><th>Agent</th><th>Work</th><th>Attempt</th>"
-            "<th>Released</th><th>Error</th><th>At</th></tr>"
-        )
-        for failure in view.failures:
-            work = (
-                f"issue #{failure.issue_number}"
-                if failure.issue_number is not None
-                else f"PR #{failure.pr_number}"
-            )
-            cls = ' class="warn"' if failure.released else ""
-            note = (
-                " local claim dropped after three spawn failures"
-                if failure.released
-                else ""
-            )
-            body_parts.append(
-                f"<tr{cls}>"
-                f"<td>{html.escape(failure.agent_name)} ({html.escape(failure.agent_id)})</td>"
-                f"<td>{html.escape(work)}</td>"
-                f"<td>{failure.attempt}</td>"
-                f"<td>{'yes' if failure.released else 'no'}{html.escape(note)}</td>"
-                f"<td>{html.escape(failure.error)}</td>"
-                f"<td>{html.escape(failure.at)}</td>"
-                "</tr>"
-            )
-        body_parts.append("</table>")
-    return _page(view.repo, view.intake_error, "".join(body_parts))
+    return render_template(
+        "agents.html",
+        view=view,
+        repo=view.repo,
+        intake_error=view.intake_error,
+    )
 
 
 def render_issues(view: IssuesView) -> str:
-    body_parts = [
-        "<h1>Issues</h1>",
-        f"<p>Repository {html.escape(view.repo)} · branch {html.escape(view.branch)}</p>",
-    ]
-    if not view.has_snapshot:
-        body_parts.append("<p>No intake snapshot yet.</p>")
-        return _page(view.repo, view.intake_error, "".join(body_parts))
-    if not view.claimed and not view.unclaimed:
-        body_parts.append("<p>No intake issues.</p>")
-        return _page(view.repo, view.intake_error, "".join(body_parts))
-    body_parts.append("<h2>Claimed</h2>")
-    body_parts.append(_issue_table(view.claimed))
-    body_parts.append("<h2>Unclaimed</h2>")
-    body_parts.append(_issue_table(view.unclaimed))
-    return _page(view.repo, view.intake_error, "".join(body_parts))
+    return render_template(
+        "issues.html",
+        view=view,
+        repo=view.repo,
+        intake_error=view.intake_error,
+    )
 
 
 def handle_http(
@@ -232,24 +173,36 @@ def handle_http(
     method: str,
     path: str,
     referer: str | None,
-) -> tuple[int, str, str | None]:
-    """Return (status, body, redirect_location)."""
+) -> tuple[int, str | bytes, str | None, str]:
+    """Return (status, body, redirect_location, content_type)."""
+    if method == "GET" and path.startswith("/static/"):
+        return _serve_static(path.removeprefix("/static/"))
     if method == "GET" and path in {"/", ""}:
         repo = f"{ctx.owner_repo.owner}/{ctx.owner_repo.name}"
-        return 200, render_index(repo, ctx.dashboard_port), None
+        return 200, render_index(repo, ctx.dashboard_port), None, "text/html; charset=utf-8"
     if method == "GET" and path == "/agents":
-        return 200, render_agents(build_agents_view(ctx)), None
+        return (
+            200,
+            render_agents(build_agents_view(ctx)),
+            None,
+            "text/html; charset=utf-8",
+        )
     if method == "GET" and path == "/issues":
-        return 200, render_issues(build_issues_view(ctx)), None
+        return (
+            200,
+            render_issues(build_issues_view(ctx)),
+            None,
+            "text/html; charset=utf-8",
+        )
     match = re.fullmatch(r"/sessions/([^/]+)/(interrupt|kill)", path)
     if method == "POST" and match:
         session_id = match.group(1)
         action = match.group(2)
         if ctx.shutdown_event.is_set() or ctx.prompt_requested.is_set():
-            return 503, "shutting down", None
+            return 503, "shutting down", None, "text/plain; charset=utf-8"
         orchestrator = ctx.orchestrator
         if orchestrator is None:
-            return 503, "not ready", None
+            return 503, "not ready", None, "text/plain; charset=utf-8"
         with ctx.cycle_lock:
             try:
                 if action == "interrupt":
@@ -257,12 +210,12 @@ def handle_http(
                 else:
                     orchestrator.kill_session(session_id)
             except KeyError:
-                return 404, "unknown session", None
+                return 404, "unknown session", None, "text/plain; charset=utf-8"
             except RuntimeError:
-                return 503, "shutting down", None
+                return 503, "shutting down", None, "text/plain; charset=utf-8"
         redirect = _safe_redirect(referer)
-        return 303, "", redirect
-    return 404, "not found", None
+        return 303, "", redirect, "text/plain; charset=utf-8"
+    return 404, "not found", None, "text/plain; charset=utf-8"
 
 
 def start_dashboard_thread(ctx: RuntimeContext) -> threading.Thread:
@@ -328,7 +281,7 @@ def _make_handler(ctx: RuntimeContext) -> type[BaseHTTPRequestHandler]:
 
         def _dispatch(self, method: str) -> None:
             parsed = urlparse(self.path)
-            status, body, redirect = handle_http(
+            status, body, redirect, content_type = handle_http(
                 ctx,
                 method=method,
                 path=parsed.path,
@@ -339,9 +292,8 @@ def _make_handler(ctx: RuntimeContext) -> type[BaseHTTPRequestHandler]:
                 self.send_header("Location", redirect)
                 self.end_headers()
                 return
-            payload = body.encode("utf-8")
+            payload = body if isinstance(body, bytes) else body.encode("utf-8")
             self.send_response(status)
-            content_type = "text/html; charset=utf-8" if status == 200 else "text/plain"
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
@@ -362,55 +314,18 @@ def _safe_redirect(referer: str | None) -> str:
     return "/agents"
 
 
-def _issue_table(rows: list[IssueRow]) -> str:
-    if not rows:
-        return "<p>None.</p>"
-    parts = [
-        "<table><tr><th>Issue</th><th>Title</th><th>Agent</th>"
-        "<th>Session</th><th>Warning</th></tr>"
-    ]
-    for row in rows:
-        warn = (
-            "local claim dropped after three spawn failures" if row.three_strike else ""
-        )
-        parts.append(
-            "<tr>"
-            f"<td>#{row.number}</td>"
-            f"<td>{html.escape(row.title)}</td>"
-            f"<td>{html.escape(row.agent_id or '')}</td>"
-            f"<td>{html.escape(row.session_id or '')}</td>"
-            f"<td>{html.escape(warn)}</td>"
-            "</tr>"
-        )
-    parts.append("</table>")
-    return "".join(parts)
-
-
-def _page(repo: str, intake_error: str | None, body: str) -> str:
-    banner = ""
-    if intake_error:
-        banner = (
-            f'<p class="error">{html.escape(intake_error)} '
-            "(as of last failed poll)</p>"
-        )
-    return (
-        "<!DOCTYPE html><html><head><meta charset=\"utf-8\">"
-        "<title>Orkie</title>"
-        "<style>"
-        "body{font-family:sans-serif;margin:1.5rem}"
-        "nav a{margin-right:1rem}"
-        "table{border-collapse:collapse;width:100%}"
-        "th,td{border:1px solid #ccc;padding:0.4rem;text-align:left}"
-        "tr.warn{background:#fff3cd}"
-        ".error{color:#a40000}"
-        "form{display:inline}"
-        "</style></head><body>"
-        "<nav>"
-        '<a href="/">Orkie</a>'
-        '<a href="/agents">Agents</a>'
-        '<a href="/issues">Issues</a>'
-        f"<span>{html.escape(repo)}</span>"
-        "</nav>"
-        f"{banner}{body}"
-        "</body></html>"
-    )
+def _serve_static(rel: str) -> tuple[int, str | bytes, str | None, str]:
+    rel = unquote(rel).lstrip("/")
+    parts = Path(rel).parts
+    if not parts or ".." in parts or any(part.startswith("/") for part in parts):
+        return 404, "not found", None, "text/plain; charset=utf-8"
+    candidate = resources.files("orkie").joinpath("static", *parts)
+    if not candidate.is_file():
+        return 404, "not found", None, "text/plain; charset=utf-8"
+    data = candidate.read_bytes()
+    content_type, _ = mimetypes.guess_type(parts[-1])
+    if content_type is None:
+        content_type = "application/octet-stream"
+    if content_type.startswith("text/"):
+        content_type = f"{content_type}; charset=utf-8"
+    return 200, data, None, content_type

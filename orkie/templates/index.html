@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Orkie{% endblock %}
+{% block content %}
+<h1>Orkie</h1>
+<p class="lede">Repository {{ repo }}</p>
+<p class="lede">Dashboard http://127.0.0.1:{{ port }}/</p>
+<div class="card-links">
+  <a href="/agents">Agent view</a>
+  <a href="/issues">Issue view</a>
+</div>
+{% endblock %}

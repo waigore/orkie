@@ -1,0 +1,28 @@
+{% if rows %}
+<div class="table-wrap">
+  <table>
+    <tr>
+      <th>Issue</th>
+      <th>Title</th>
+      <th>Agent</th>
+      <th>Session</th>
+      <th>Warning</th>
+    </tr>
+    {% for row in rows %}
+    <tr>
+      <td>#{{ row.number }}</td>
+      <td>{{ row.title }}</td>
+      <td>{{ row.agent_id or "" }}</td>
+      <td>{{ row.session_id or "" }}</td>
+      <td>
+        {% if row.three_strike %}
+        local claim dropped after three spawn failures
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% else %}
+<p class="empty">None.</p>
+{% endif %}

@@ -2,11 +2,11 @@
 
 | Features | ADRs |
 |----------|------|
-| [01](../feature/01-project-bootstrap-and-config.md)–[08](../feature/08-cli-and-dashboard.md) | [001](../adr/001-2-process-model-and-module-layout.md), [002](../adr/002-1-tech-stack-and-dependencies.md) |
+| [01](../feature/01-project-bootstrap-and-config.md)–[08](../feature/08-cli-and-dashboard.md) | [001](../adr/001-2-process-model-and-module-layout.md), [002](../adr/002-2-tech-stack-and-dependencies.md) |
 
 Normative rules for the `orkie` package. Features own behavior. ADRs own the process model, the module map, the libraries, and the test locks. [components.md](components.md), [sequences.md](sequences.md), [data.md](data.md), [ui.md](ui.md), and [config.md](config.md) own signatures, schemas, and flows. This file owns how that code is written.
 
-A signature or sequence in those documents wins over a style note here. These conventions add no dependency, knob, product behavior, or import path beyond the ADR 001 module names. Stack, coverage, and fake boundaries stay in [ADR 002](../adr/002-1-tech-stack-and-dependencies.md).
+A signature or sequence in those documents wins over a style note here. These conventions add no dependency, knob, product behavior, or import path beyond the ADR 001 module names. Stack, coverage, and fake boundaries stay in [ADR 002](../adr/002-2-tech-stack-and-dependencies.md).
 
 ## Goals
 
@@ -32,6 +32,14 @@ orkie/state.py
 orkie/intake.py
 orkie/worktree.py
 orkie/dashboard.py
+orkie/templates/                   # Jinja2 HTML (package data)
+orkie/templates/base.html
+orkie/templates/index.html
+orkie/templates/agents.html
+orkie/templates/issues.html
+orkie/templates/partials/
+orkie/static/                      # Packaged assets served at /static/ (package data)
+orkie/static/dashboard.css
 orkie/orchestration/__init__.py    # Orchestrator and the cycle procedure
 orkie/orchestration/decide.py      # pure claim, cap, strike, and babysitter decisions
 orkie/connectors/types.py         # Issue, PullRequest, OwnerRepo, errors, Privilege
@@ -188,7 +196,7 @@ Use `match` for trigger type, shutdown mode, privilege, intake outcome, JSON-RPC
 
 JSON-RPC methods Orkie sends are named functions (`initialize`, `session_new`, `session_prompt`, `session_cancel`, `session_delete`), each building one frozen request. Inbound dispatch is a `match` on `method` in the reader thread. An unknown method is ignored after a redacted log line. Orkie does not resolve methods with `getattr`.
 
-Dashboard routes are an `if` chain on `(method, path)` inside one handler function that returns `(status, body, redirect)`. The routes are the five in [components.md](components.md). The `ThreadingHTTPServer` subclass is an adapter that calls that function.
+Dashboard routes are an `if` chain on `(method, path)` inside one handler function that returns `(status, body_or_bytes, redirect, content_type)`. The HTML routes and control POSTs are those in [components.md](components.md); `GET /static/<path>` is an additional branch that reads package data. The `ThreadingHTTPServer` subclass is an adapter that calls that function.
 
 Config and state loaders read named keys. Each key is checked with `isinstance` and then stored on a dataclass. There is no schema object, no field-name dispatch, and no model metaclass.
 
@@ -295,11 +303,11 @@ The following are out of the v1 tree. A behavior that seems to need one of them 
 
 ## Dashboard and HTML
 
-`dashboard.py` builds a frozen view model from the store and the in-memory session table, then a pure function renders the agent page or the issue page to a string. Tests call the view-model function and the render function with dataclasses. The server adapter binds `127.0.0.1`, serves the string, and posts controls.
+`dashboard.py` builds a frozen view model from the store and the in-memory session table, then renders a named Jinja2 template to HTML. Templates live under `orkie/templates/` and use a shared `base.html` for nav, intake banner, and the stylesheet link. Autoescape is on; page builders do not concatenate HTML or call `html.escape` for template values. Tests call the view-model function and the render function with dataclasses. The server adapter binds `127.0.0.1`, serves HTML or static bytes, and posts controls.
 
 Control handling is one function: shutdown in progress returns 503; otherwise it takes the cycle lock, calls `interrupt_session` or `kill_session`, and returns the redirect. Unknown session returns 404.
 
-Every interpolated value passes through `html.escape`. Markup is string literals in the render function. There is no template loader.
+Static files under `orkie/static/` are served only via `GET /static/<path>` with the resolved path constrained to that directory.
 
 ## Tests
 

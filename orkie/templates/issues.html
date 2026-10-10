@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Issues · Orkie{% endblock %}
+{% block content %}
+<h1>Issues</h1>
+<p class="lede">Repository {{ view.repo }} · branch {{ view.branch }}</p>
+{% if not view.has_snapshot %}
+<p class="empty">No intake snapshot yet.</p>
+{% elif not view.claimed and not view.unclaimed %}
+<p class="empty">No intake issues.</p>
+{% else %}
+<h2>Claimed</h2>
+{% with rows = view.claimed %}
+{% include "partials/issue_table.html" %}
+{% endwith %}
+<h2>Unclaimed</h2>
+{% with rows = view.unclaimed %}
+{% include "partials/issue_table.html" %}
+{% endwith %}
+{% endif %}
+{% endblock %}

@@ -15,7 +15,7 @@ Feature [08](../feature/08-cli-and-dashboard.md) defines the `orkie` command, co
 ### CLI
 
 - Console script: `orkie`.
-- Library: **stdlib `argparse`** ([002-1](002-1-tech-stack-and-dependencies.md)).
+- Library: **stdlib `argparse`** ([002-2](002-2-tech-stack-and-dependencies.md)).
 - Arguments:
   - optional positional `project` directory (default: cwd)
   - optional `--port N` overriding `dashboard_port`
@@ -25,7 +25,7 @@ Feature [08](../feature/08-cli-and-dashboard.md) defines the `orkie` command, co
 
 ```text
 parse args -> bootstrap ([003-3](003-3-config-load-and-bootstrap-sequence.md))
-  -> start dashboard thread ([012-2](012-2-dashboard-stack-and-control-api.md))
+  -> start dashboard thread ([012-3](012-3-dashboard-stack-and-control-api.md))
   -> main loop sleep/poll until shutdown_event
   -> normal or graceful shutdown -> exit 0
 ```
@@ -41,7 +41,7 @@ parse args -> bootstrap ([003-3](003-3-config-load-and-bootstrap-sequence.md))
 ### Normal shutdown
 
 1. Stop new intake cycles and new spawns.
-2. Dashboard controls fail closed ([012-2](012-2-dashboard-stack-and-control-api.md)).
+2. Dashboard controls fail closed ([012-3](012-3-dashboard-stack-and-control-api.md)).
 3. End every live ACP session by the delete path ([006-1](006-1-acp-agent-runtime.md)).
 4. Remove session worktrees ([008-1](008-1-git-worktrees.md)). A removal failure is logged and does not change the exit code.
 5. Shut down the dashboard HTTP server and join its thread.

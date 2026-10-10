@@ -2,9 +2,9 @@
 
 ## Status
 
-Accepted
+Superseded by [012-3](../012-3-dashboard-stack-and-control-api.md).
 
-Supersedes [012-1](superseded/012-1-dashboard-stack-and-control-api.md).
+Supersedes [012-1](012-1-dashboard-stack-and-control-api.md).
 
 ## Context
 

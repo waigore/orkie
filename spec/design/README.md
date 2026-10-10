@@ -66,7 +66,7 @@ Companion product docs: [vocabulary](../feature/vocabulary.md), [users](../featu
 | ADR | Design files |
 |-----|--------------|
 | [001 Process and modules](../adr/001-2-process-model-and-module-layout.md) | components, conventions, README |
-| [002 Tech stack](../adr/002-1-tech-stack-and-dependencies.md) | components, config, ui, conventions |
+| [002 Tech stack](../adr/002-2-tech-stack-and-dependencies.md) | components, config, ui, conventions |
 | [003 Bootstrap](../adr/003-3-config-load-and-bootstrap-sequence.md) | sequences, components (`cli`, `config`), config |
 | [004 Local state](../adr/004-2-local-state-format-and-process-lock.md) | data, components (`state`) |
 | [005 Connector](../adr/005-2-connector-interface-and-github-client.md) | components (`connectors`) |
@@ -76,7 +76,7 @@ Companion product docs: [vocabulary](../feature/vocabulary.md), [users](../featu
 | [009 Intake](../adr/009-2-intake-poll-and-delta.md) | components (`intake`), sequences, data |
 | [010 Babysitter](../adr/010-2-pr-babysitter-lifecycle.md) | sequences, components (`orchestration`) |
 | [011 CLI / signals](../adr/011-2-cli-signals-and-process-lifecycle.md) | ui, sequences, components (`cli`) |
-| [012 Dashboard](../adr/012-2-dashboard-stack-and-control-api.md) | ui, components (`dashboard`) |
+| [012 Dashboard](../adr/012-3-dashboard-stack-and-control-api.md) | ui, components (`dashboard`) |
 
 ## Locked design choices (beyond ADRs)
 

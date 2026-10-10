@@ -14,7 +14,7 @@ Feature [05](../feature/05-agent-orchestration.md#worktrees) requires a dedicate
 
 ### Tooling
 
-Use the **`git` CLI** via `subprocess` (`orkie.worktree`). No pygit2/GitPython in v1 ([002-1](002-1-tech-stack-and-dependencies.md)). `git` must be on PATH; missing git fails spawn with a spawn-failure record.
+Use the **`git` CLI** via `subprocess` (`orkie.worktree`). No pygit2/GitPython in v1 ([002-2](002-2-tech-stack-and-dependencies.md)). `git` must be on PATH; missing git fails spawn with a spawn-failure record.
 
 ### Location
 

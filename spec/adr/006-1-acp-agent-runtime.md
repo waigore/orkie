@@ -67,7 +67,7 @@ If the process cannot start, the handshake fails, `authMethods` is non-empty, or
 
 ## Reasoning
 
-- In-tree ACP client matches “any ACP-compatible agent” and avoids vendor lock-in ([002-1](002-1-tech-stack-and-dependencies.md)).
+- In-tree ACP client matches “any ACP-compatible agent” and avoids vendor lock-in ([002-2](002-2-tech-stack-and-dependencies.md)).
 - Implicit grants match feature 04: Orkie is autonomous, and the audit trail is the agent log.
 - One session id minted by orchestration keeps the worktree, the prompt token, and the ACP session on the same identity.
 - Delete-then-SIGKILL matches feature 04. The empty delete result is not a process exit.

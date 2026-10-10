@@ -2,7 +2,7 @@
 
 | Features | ADRs |
 |----------|------|
-| [01](../feature/01-project-bootstrap-and-config.md), [03](../feature/03-connector-interface-and-github.md), [08](../feature/08-cli-and-dashboard.md) | [011](../adr/011-2-cli-signals-and-process-lifecycle.md), [012](../adr/012-2-dashboard-stack-and-control-api.md) |
+| [01](../feature/01-project-bootstrap-and-config.md), [03](../feature/03-connector-interface-and-github.md), [08](../feature/08-cli-and-dashboard.md) | [011](../adr/011-2-cli-signals-and-process-lifecycle.md), [012](../adr/012-3-dashboard-stack-and-control-api.md) |
 
 Operator surfaces: the CLI and the loopback dashboard. No SPA, no auth beyond loopback, no follow-up prompt box in v1. Permission grants are lines in the agent log, not a separate page.
 
@@ -90,16 +90,18 @@ Documented sample unit lives in feature [08](../feature/08-cli-and-dashboard.md)
 
 - `http.server.ThreadingHTTPServer` on `127.0.0.1` only
 - Port: CLI `--port` if set, else `dashboard_port` (default `8765`)
-- HTML via string templates + `html.escape`
+- HTML via **Jinja2** templates under `orkie/templates/` (`PackageLoader`, autoescape on)
+- CSS and other assets under `orkie/static/`, served at `GET /static/<path>` (v1: `dashboard.css` linked from the base layout)
 - Full page reload (no WebSockets)
 - Background thread; bind failure aborts bootstrap
 
 ### Navigation
 
-Shared chrome on every page:
+Shared chrome on every HTML page (Jinja `base.html`):
 
 | Element | Behavior |
 |---------|----------|
+| Stylesheet | `<link rel="stylesheet" href="/static/dashboard.css">` |
 | Product name | `Orkie` link to `GET /` |
 | Nav: Agents | `GET /agents` |
 | Nav: Issues | `GET /issues` |
@@ -115,6 +117,7 @@ No authentication UI.
 | GET | `/` | Index |
 | GET | `/agents` | Agent view |
 | GET | `/issues` | Issue view |
+| GET | `/static/<path>` | Packaged static file (CSS in v1); 404 if missing; reject path traversal |
 | POST | `/sessions/<session_id>/interrupt` | Cancel current ACP turn |
 | POST | `/sessions/<session_id>/kill` | Delete session and drop an issue claim |
 

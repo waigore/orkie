@@ -8,7 +8,7 @@ The full ADR set must:
 
 1. **Satisfy all features** — every numbered feature in [`spec/feature/`](../feature/) is covered by one or more ADRs (see [Feature coverage](#feature-coverage)).
 2. **Inform component design** — together, ADRs are detailed and consistent enough to design packages, modules, flows, states, and sequences without inventing unstated architecture.
-3. **Cover the tech stack** — approved dependencies, stdlib-first choices, explicitly rejected libraries, and offline test / coverage standards appear in the set (especially [002](002-1-tech-stack-and-dependencies.md)).
+3. **Cover the tech stack** — approved dependencies, stdlib-first choices, explicitly rejected libraries, and offline test / coverage standards appear in the set (especially [002](002-2-tech-stack-and-dependencies.md)).
 
 ## General principles
 
@@ -52,8 +52,8 @@ Every ADR file uses the same sections (lean, feature-spec style):
 | Role | Location | Example |
 |------|----------|---------|
 | Original (then `Superseded`) | `superseded/` | `superseded/002-tech-stack-and-dependencies.md` |
-| First replacement (`Accepted`) | `spec/adr/` | `002-1-tech-stack-and-dependencies.md` |
-| Second replacement | `spec/adr/` (prior `-1` moves to `superseded/`) | `002-2-….md` |
+| First replacement (`Accepted`) | `spec/adr/` | `002-2-tech-stack-and-dependencies.md` |
+| Later replacement | `spec/adr/` (prior current moves to `superseded/`) | `002-2-….md` |
 
 The catalog index lists only the **current** file for each `NNN`. Superseded files are not catalog rows; they stay readable under `superseded/` and are linked from Status.
 
@@ -66,7 +66,7 @@ Anything under `spec/adr/*.md` (except history links) is current — link those 
 | ID | Title | Status | Features |
 |----|-------|--------|----------|
 | [001](001-2-process-model-and-module-layout.md) | Process model and module layout | Accepted | All; esp. 05, 08 |
-| [002](002-1-tech-stack-and-dependencies.md) | Tech stack and dependencies | Accepted | All |
+| [002](002-2-tech-stack-and-dependencies.md) | Tech stack and dependencies | Accepted | All |
 | [003](003-3-config-load-and-bootstrap-sequence.md) | Config load and bootstrap sequence | Accepted | 01, 03, 08 |
 | [004](004-2-local-state-format-and-process-lock.md) | Local state format and process lock | Accepted | 02, 08 |
 | [005](005-2-connector-interface-and-github-client.md) | Connector interface and GitHub client | Accepted | 03, 06, 07 |
@@ -76,7 +76,7 @@ Anything under `spec/adr/*.md` (except history links) is current — link those 
 | [009](009-2-intake-poll-and-delta.md) | Intake poll and delta | Accepted | 06, 02 |
 | [010](010-2-pr-babysitter-lifecycle.md) | PR babysitter lifecycle | Accepted | 07, 05 |
 | [011](011-2-cli-signals-and-process-lifecycle.md) | CLI, signals, and process lifecycle | Accepted | 08, 01 |
-| [012](012-2-dashboard-stack-and-control-api.md) | Dashboard stack and control API | Accepted | 08, 04 |
+| [012](012-3-dashboard-stack-and-control-api.md) | Dashboard stack and control API | Accepted | 08, 04 |
 
 ### Feature coverage
 

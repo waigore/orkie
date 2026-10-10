@@ -2,7 +2,7 @@
 
 ## Status
 
-Superseded by [002-1](../002-1-tech-stack-and-dependencies.md).
+Superseded by [002-1](002-1-tech-stack-and-dependencies.md).
 
 ## Context
 

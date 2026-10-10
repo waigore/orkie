@@ -1,6 +1,6 @@
 # Offline unit tests
 
-Pytest suite for the installable `orkie` package. This is the default CI suite locked in [ADR 002-1](../spec/adr/002-1-tech-stack-and-dependencies.md). Live GitHub acceptance lives under [`spec/testing/`](../spec/testing/) and is out of band.
+Pytest suite for the installable `orkie` package. This is the default CI suite locked in [ADR 002-2](../spec/adr/002-2-tech-stack-and-dependencies.md). Live GitHub acceptance lives under [`spec/testing/`](../spec/testing/) and is out of band.
 
 ## Layout
 

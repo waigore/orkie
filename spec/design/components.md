@@ -2,7 +2,7 @@
 
 | Features | ADRs |
 |----------|------|
-| [01](../feature/01-project-bootstrap-and-config.md)–[08](../feature/08-cli-and-dashboard.md) | [001](../adr/001-2-process-model-and-module-layout.md)–[012](../adr/012-2-dashboard-stack-and-control-api.md) |
+| [01](../feature/01-project-bootstrap-and-config.md)–[08](../feature/08-cli-and-dashboard.md) | [001](../adr/001-2-process-model-and-module-layout.md)–[012](../adr/012-3-dashboard-stack-and-control-api.md) |
 
 Package map and process model are locked by [ADR 001](../adr/001-2-process-model-and-module-layout.md). This document defines purpose, scope, interfaces, and lifecycle for each package so implementation does not invent boundaries.
 
@@ -98,7 +98,7 @@ Unix-like hosts only for process lock (macOS/Linux). Document that on refuse-sta
 ## `orkie.config`
 
 **Features:** [01](../feature/01-project-bootstrap-and-config.md)  
-**ADRs:** [002](../adr/002-1-tech-stack-and-dependencies.md), [003](../adr/003-3-config-load-and-bootstrap-sequence.md)
+**ADRs:** [002](../adr/002-2-tech-stack-and-dependencies.md), [003](../adr/003-3-config-load-and-bootstrap-sequence.md)
 
 ### Purpose
 
@@ -389,7 +389,7 @@ Built after the token is read; used for the read-only privilege probe, then ever
 ## `orkie.acp`
 
 **Features:** [04](../feature/04-acp-agent-runtime.md)  
-**ADRs:** [006](../adr/006-1-acp-agent-runtime.md), [002](../adr/002-1-tech-stack-and-dependencies.md)
+**ADRs:** [006](../adr/006-1-acp-agent-runtime.md), [002](../adr/002-2-tech-stack-and-dependencies.md)
 
 ### Purpose
 
@@ -744,17 +744,17 @@ class WorktreeService:
 ## `orkie.dashboard`
 
 **Features:** [08](../feature/08-cli-and-dashboard.md)  
-**ADRs:** [012](../adr/012-2-dashboard-stack-and-control-api.md)
+**ADRs:** [012](../adr/012-3-dashboard-stack-and-control-api.md), [002](../adr/002-2-tech-stack-and-dependencies.md)
 
 ### Purpose
 
-Loopback HTML UI and control POSTs.
+Loopback HTML UI (Jinja2 + packaged CSS) and control POSTs.
 
 ### Scope
 
 | In | Out |
 |----|-----|
-| `ThreadingHTTPServer` on `127.0.0.1`; pages; form POSTs; cycle lock for controls | Claim policy (delegates to orchestration); ACP wire |
+| `ThreadingHTTPServer` on `127.0.0.1`; Jinja page render; `GET /static/...`; form POSTs; cycle lock for controls | Claim policy (delegates to orchestration); ACP wire |
 
 ### Interfaces
 
@@ -764,11 +764,12 @@ def start_dashboard_thread(ctx: RuntimeContext) -> threading.Thread:
 
 # HTTP routes — see ui.md for columns and CTAs
 # GET  / | /agents | /issues
+# GET  /static/<path>   # package data under orkie/static/
 # POST /sessions/<session_id>/interrupt
 # POST /sessions/<session_id>/kill
 ```
 
-Control handlers: if `shutdown_event` → HTTP 503. Else acquire cycle lock (block until main releases), call orchestration, redirect back to referrer or `/agents`. Unknown session → 404.
+Page handlers build a frozen view model, then render a Jinja template (`orkie/templates/`). Static handler reads only files under `orkie/static/`. Control handlers: if `shutdown_event` → HTTP 503. Else acquire cycle lock (block until main releases), call orchestration, redirect back to referrer or `/agents`. Unknown session → 404.
 
 ### Lifecycle
 

@@ -13,7 +13,7 @@ Feature [08](../feature/08-cli-and-dashboard.md) defines the `orkie` command, co
 ### CLI
 
 - Console script: `orkie`.
-- Library: **stdlib `argparse`** ([002-1](../002-1-tech-stack-and-dependencies.md)).
+- Library: **stdlib `argparse`** ([002-1](002-1-tech-stack-and-dependencies.md)).
 - Arguments:
   - optional positional `project` directory (default: cwd)
   - optional `--port N` overriding `dashboard_port`
