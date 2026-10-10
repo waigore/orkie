@@ -2,15 +2,17 @@
 
 ## Description
 
-Orkie continuously monitors the project's intake issues through the connector, on `poll_interval_seconds` (default 60). An **intake issue** is an open GitHub issue that is not a pull request and that has at least one label in the configured `issue_labels`. Pull requests are left to the babysitter, including pull requests that happen to carry an issue label.
+Orkie continuously monitors the project's intake issues through the connector, on `poll_interval_seconds` (default 60). An **intake issue** is an open GitHub issue that is not a pull request and that has at least one label in the configured `issue_labels`. The Orkie `claim_label` is never an intake demarcation label (see [01-project-bootstrap-and-config.md](01-project-bootstrap-and-config.md)). Pull requests are left to the babysitter, including pull requests that happen to carry an issue label.
 
 Each cycle compares the remote intake set to the locally stored snapshot, computes a delta, and feeds that delta to orchestration. Startup also reads claim labels so recovered claims can be fulfilled before new matches (see [05-agent-orchestration.md](05-agent-orchestration.md)). For repositories with very large closed-issue histories, intake does not download that history.
 
-## Users and use cases
+## Use cases
 
-- **Continuous Orkie process**: Polls the tracker and keeps a local view of intake issues and claim labels.
+Actors are defined in [users.md](users.md).
+
+- **Continuous Orkie process** / **Intake**: Polls the tracker and keeps a local view of intake issues and claim labels.
 - **Orchestration**: Consumes eligibility, trigger fields, and claim-label presence to spawn, fulfill, or stop sessions.
-- **Operator of a large repo**: Expects polling to stay on the open intake set when the project has many thousands of closed issues.
+- **Operator**: Expects polling to stay on the open intake set when the project has many thousands of closed issues.
 
 ## User stories
 
@@ -66,7 +68,7 @@ Each cycle compares the remote intake set to the locally stored snapshot, comput
 
 **Given** a poll cycle fails because of a network error, auth error, rate limit, incomplete page set, or other connector outage  
 **When** intake cannot refresh remote data  
-**Then** Orkie preserves the last good snapshot and claim records, surfaces the error to logs and the dashboard, and retries on a later cycle
+**Then** Orkie preserves the last good snapshot, does not add or remove claim labels, surfaces the error to logs and the dashboard, and retries on a later cycle
 
 ## Acceptance criteria
 
@@ -74,9 +76,9 @@ Each cycle compares the remote intake set to the locally stored snapshot, comput
 - [ ] An intake issue is open, is not a pull request, and has at least one configured `issue_labels` entry.
 - [ ] Each successful cycle obtains issues through the connector interface and compares them to the local snapshot.
 - [ ] The delta reports eligibility changes and label changes needed by `any` and `labels` triggers.
-- [ ] The cycle also reports whether the claim label is present, for startup reconciliation.
+- [ ] The cycle also reports whether the claim label is present on open issues, including open issues that are not intake, so orchestration can remove those labels.
 - [ ] Intake does not download the full closed-issue history on a normal poll.
 - [ ] A partial multi-page fetch is a failed poll. It does not replace the last good snapshot.
-- [ ] Failed polls leave claim records intact and are visible to the operator.
+- [ ] Failed polls leave the snapshot unchanged, do not add or remove claim labels, and are visible to the operator.
 - [ ] Intake does not implement GitHub-specific HTTP. It uses the connector (see [03-connector-interface-and-github.md](03-connector-interface-and-github.md)).
 - [ ] Process shutdown stops the intake poll loop so it does not start a new cycle after SIGINT or SIGTERM (see [08-cli-and-dashboard.md](08-cli-and-dashboard.md)).

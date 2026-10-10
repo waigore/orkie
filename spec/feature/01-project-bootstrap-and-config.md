@@ -2,15 +2,18 @@
 
 ## Description
 
-Orkie starts against a target Git project, discovers that project's `.orkie/` configuration directory, and loads [`.orkie/config.yaml`](#config-schema). That file defines the GitHub connector, the labels that mark intake issues, the single claim label, session caps, agents (config identity, command, prompt, triggers), and the optional PR babysitter. If `.orkie/` or `config.yaml` is missing, bootstrap offers to create a basic default config the operator can accept or reject. The default config defines one agent that handles one open issue at a time, among issues that carry the default issue label. Bootstrap validates that the config is usable and prepares the runtime for continuous orchestration. Secrets and tokens are never stored in `.orkie/`; the GitHub token comes from the `GITHUB_TOKEN` environment variable (see [03-connector-interface-and-github.md](03-connector-interface-and-github.md)).
+Orkie starts against a target Git project, discovers that project's `.orkie/` configuration directory, and loads [`.orkie/config.yaml`](#config-schema). That file defines the GitHub connector, the labels that mark intake issues, the single claim label, session caps, agents (config identity, command, prompt, triggers), the optional PR babysitter, and the dashboard port. If `.orkie/` or `config.yaml` is missing, bootstrap offers to create a basic default config the operator can accept or reject **only when the process is interactive**. In non-interactive mode (for example systemd), missing config is a hard failure with no prompt. The default config defines one agent that handles one open issue at a time, among issues that carry the default issue label. Bootstrap validates that the config is usable and prepares the runtime for continuous orchestration. Secrets and tokens are never stored in `.orkie/`; the GitHub token comes from the `GITHUB_TOKEN` environment variable (see [03-connector-interface-and-github.md](03-connector-interface-and-github.md)).
 
 Config is loaded at bootstrap and applies for that process. Editing the file during a run has no effect until the next start.
 
-## Users and use cases
+**Interactive vs non-interactive:** see [vocabulary.md](vocabulary.md). Non-interactive bootstrap never prompts; any error that would need operator consent fails hard. Interactive bootstrap may prompt (default config offer; required connector privilege gaps). See also [08-cli-and-dashboard.md](08-cli-and-dashboard.md).
+
+## Use cases
+
+Actors are defined in [users.md](users.md).
 
 - **Project maintainer**: Adds or customizes `.orkie/config.yaml` so Orkie can run in the repository without code changes to Orkie itself.
-- **First-time operator**: Starts Orkie in a repo without config and can accept a default config to get running quickly, or reject creation and stop.
-- **Operator**: Starts Orkie via the CLI against a project path (or from inside the project) and expects a clear success or failure during bootstrap.
+- **Operator**: Starts Orkie via the CLI against a project path (or from inside the project) and expects a clear success or failure during bootstrap; on first run without config, can accept a default scaffold or reject and stop (interactive only).
 - **Architect / agent author**: Relies on project-owned YAML for roles and prompts. Orkie does not hard-code agent roles beyond the optional default scaffold.
 
 ## User stories
@@ -21,11 +24,17 @@ Config is loaded at bootstrap and applies for that process. Editing the file dur
 **When** Orkie is started pointing at that project (or from within it)  
 **Then** Orkie loads the configuration, applies it for this run, and proceeds to subsequent bootstrap steps (local state, connector checks, orchestration loop)
 
-### Offer default config when config is missing
+### Offer default config when config is missing (interactive)
 
-**Given** a Git repository that has no `.orkie/` directory, or a `.orkie/` directory with no `config.yaml`  
+**Given** a Git repository that has no `.orkie/` directory, or a `.orkie/` directory with no `config.yaml`, and the process is interactive  
 **When** Orkie is started against that directory  
 **Then** bootstrap prompts the operator to create a basic default config and does not silently invent config without consent
+
+### Missing config fails hard when non-interactive
+
+**Given** a Git repository that has no `.orkie/config.yaml` and the process is non-interactive  
+**When** Orkie is started against that directory  
+**Then** bootstrap fails immediately with a clear error that configuration is required. No prompt. No file is written
 
 ### Accept default config creation
 
@@ -69,11 +78,17 @@ Config is loaded at bootstrap and applies for that process. Editing the file dur
 **When** bootstrap loads config  
 **Then** Orkie uses that label name when set, otherwise `orkie:claimed`, and that single name is available to orchestration (see [05-agent-orchestration.md](05-agent-orchestration.md))
 
-### Missing claim label is created or bootstrap fails
+### Missing claim label is created or treated as a required privilege gap
 
 **Given** the resolved claim label does not already exist on the GitHub repository  
 **When** bootstrap prepares the connector  
-**Then** Orkie creates that label when the token has permission to create labels. When the token does not, bootstrap fails before the loop starts and the error states the label name and that label-creation permission is required
+**Then** Orkie creates that label when the token has permission. When the token does not, that is a missing required privilege and follows [03-connector-interface-and-github.md](03-connector-interface-and-github.md#required-privileges)
+
+### Claim label stays out of issue_labels
+
+**Given** project YAML sets `claim_label` to a name that also appears in `issue_labels`  
+**When** Orkie validates config  
+**Then** bootstrap fails with an error that says the claim label must be separate from intake trigger labels
 
 ### Related prompt files live under `.orkie/`
 
@@ -93,12 +108,13 @@ The only config file is `.orkie/config.yaml`. `version` must be `1`. Unknown fie
 | `connector` | yes | | Connector selection. See below. |
 | `poll_interval_seconds` | no | `60` | Intake and PR poll interval. Integer `>= 15`. |
 | `issue_labels` | yes | | One or more GitHub label names. An open issue is an intake issue when it is not a pull request and has at least one of these labels. |
-| `claim_label` | no | `orkie:claimed` | The single claim label Orkie applies to an issue it has claimed. |
+| `claim_label` | no | `orkie:claimed` | The single Orkie-owned claim label applied to a claimed issue. Must not appear in `issue_labels`. |
 | `max_concurrent_sessions` | no | `1` | Global ceiling on issue sessions across all agents. Integer `>= 1`. |
+| `dashboard_port` | no | `8765` | Loopback TCP port for the local dashboard. Integer `1`–`65535`. Overridable on the CLI (see [08-cli-and-dashboard.md](08-cli-and-dashboard.md)). |
 | `agents` | yes | | One or more agent definitions. |
 | `babysitter` | no | `{enabled: false}` | Optional PR babysitter. |
 
-`issue_labels` and `claim_label` are GitHub label names: non-empty and at most 50 characters. Names in `issue_labels` are unique.
+`issue_labels` and `claim_label` are GitHub label names: non-empty and at most 50 characters. Names in `issue_labels` are unique. `claim_label` must not equal any entry in `issue_labels` (claim labels are an Orkie construct; intake triggers are project-defined and separate).
 
 `connector`:
 
@@ -113,13 +129,13 @@ Each entry in `agents` is one config identity. It is not a live session.
 
 | Field | Required | Default | Meaning |
 |-------|----------|---------|---------|
-| `id` | yes | | Config identity. Unique among agents and the babysitter. Non-empty, no whitespace, at most 64 characters. |
+| `id` | yes | | Config identity. Unique among agents and the babysitter when the babysitter is enabled. Non-empty, no whitespace, at most 64 characters. |
 | `name` | yes | | Display name. |
-| `role` | yes | | Project-defined role string. Not an enum. |
+| `role` | yes | | Project-defined role string for display and metadata. Not an enum. Orchestration does not branch on `role`. |
 | `command` | yes | | Non-empty argument list used to spawn the ACP agent. The first item is the executable. |
 | `max_concurrent_sessions` | no | `1` | Ceiling for live sessions of this config identity. Integer `>= 1`. The global ceiling still applies. |
-| `prompt` | one of `prompt` or `prompt_file` | | Inline prompt template. |
-| `prompt_file` | one of `prompt` or `prompt_file` | | Path relative to `.orkie/` for the prompt template. |
+| `prompt` | exactly one of `prompt` or `prompt_file` | | Inline prompt template. Both set, or neither set, fails validation. |
+| `prompt_file` | exactly one of `prompt` or `prompt_file` | | Path relative to `.orkie/` for the prompt template. Both set, or neither set, fails validation. |
 | `triggers` | yes | | One or more spawn predicates. See below. |
 
 A trigger entry is one of:
@@ -135,14 +151,14 @@ An agent matches an issue when any one of its trigger entries matches. Trigger m
 
 | Field | Required | Default | Meaning |
 |-------|----------|---------|---------|
-| `enabled` | no | `false` | When `false`, Orkie does not manage pull requests. Other babysitter fields are ignored. |
+| `enabled` | no | `false` | When `false`, Orkie does not manage pull requests. All other babysitter fields are ignored and are not validated for uniqueness or shape. |
 | `id` | when enabled | | Config identity. Same constraints as an agent `id`, and unique across agents. |
 | `name` | when enabled | | Display name. |
-| `role` | when enabled | | Project-defined role string. |
+| `role` | when enabled | | Project-defined role string for display and metadata. |
 | `command` | when enabled | | ACP argument list, same rule as an agent `command`. |
-| `prompt` or `prompt_file` | when enabled | | Prompt template. Orkie still assigns only one PR per session. The prompt should tell the agent to work only on that PR. |
+| `prompt` or `prompt_file` | when enabled | | Exactly one prompt template. Orkie assigns only one PR per session. The prompt should tell the agent to work only on that PR. |
 
-The babysitter has no issue triggers and no `max_concurrent_sessions`. Orkie runs at most one babysitter session, and that session does not consume issue session caps.
+The babysitter has no issue triggers and no `max_concurrent_sessions`. Orkie runs at most one babysitter session at a time, and that session does not consume issue session caps.
 
 ### Prompt variables
 
@@ -166,7 +182,7 @@ Orkie substitutes these tokens in the prompt text before the ACP session receive
 | `__SESSION_ID__` | Session id | Session id |
 | `__REPO__` | `owner/name` | `owner/name` |
 
-A session is bound to one issue or one PR. The project prompt can tell the agent to do otherwise. Orkie still tracks only the bound work item. What the agent does beyond that is undefined.
+**Agent ↔ work mapping is 1:0–1.** Orkie assigns at most one issue (or, for the babysitter, one PR) to a session, and an issue has at most one Orkie agent working on it. The project prompt should keep the agent on that bound item. If the agent acts on other items anyway, Orkie still tracks only the bound work item.
 
 ### Default scaffold
 
@@ -181,6 +197,7 @@ issue_labels:
   - orkie
 claim_label: orkie:claimed
 max_concurrent_sessions: 1
+dashboard_port: 8765
 agents:
   - id: worker
     name: Worker
@@ -218,14 +235,17 @@ The default issue label is `orkie`. The default agent command is OpenCode's ACP 
 
 - [ ] Orkie resolves a target project directory from the CLI argument or the current working directory (see [08-cli-and-dashboard.md](08-cli-and-dashboard.md)).
 - [ ] Config is `.orkie/config.yaml` and matches the schema in this feature, including defaults, prompt variables, and session caps.
-- [ ] When that file is missing, bootstrap interactively offers to create it and does not write it without an explicit accept.
-- [ ] The operator can reject the offer. On reject, no config is created and the orchestration loop does not start.
+- [ ] When that file is missing and the process is interactive, bootstrap offers to create it and does not write it without an explicit accept.
+- [ ] When that file is missing and the process is non-interactive, bootstrap fails with no prompt and writes nothing.
+- [ ] The operator can reject the interactive offer. On reject, no config is created and the orchestration loop does not start.
 - [ ] On accept, Orkie writes the default scaffold in this feature.
 - [ ] Invalid or incomplete config fails bootstrap before the continuous loop starts. Errors name the problem. The default offer applies only when config is absent, not when it is present and broken.
-- [ ] Agent roles remain project-defined. The default scaffold is only a starting template.
-- [ ] Tokens and secrets are not read from `.orkie/`. `GITHUB_TOKEN` is required. A missing or empty token fails bootstrap. If `claim_label` does not exist on the repo and the token cannot create labels, bootstrap fails with an error that names the label and the missing label-creation permission. Missing issue read, label add or remove, or pull-request read when the babysitter is enabled also fails bootstrap (see [03-connector-interface-and-github.md](03-connector-interface-and-github.md)).
-- [ ] `poll_interval_seconds` defaults to 60 and must be an integer greater than or equal to 15.
+- [ ] Agent `role` is project-defined display/metadata. Exactly one of `prompt` or `prompt_file` is required. When `babysitter.enabled` is false, other babysitter fields are ignored. The default scaffold is only a starting template.
+- [ ] Tokens and secrets are not read from `.orkie/`. `GITHUB_TOKEN` is required. Required connector privileges and interactive vs non-interactive handling are defined in [03-connector-interface-and-github.md](03-connector-interface-and-github.md#required-privileges).
+- [ ] `claim_label` must not appear in `issue_labels`.
+- [ ] `poll_interval_seconds` defaults to 60 and must be an integer greater than or equal to 15. `dashboard_port` defaults to 8765.
 - [ ] Optional `connector.repo` is `owner/name`. When it is omitted, repository resolution follows [03-connector-interface-and-github.md](03-connector-interface-and-github.md).
 - [ ] `issue_labels` selects intake issues. Pull requests are not intake issues (see [06-work-intake-and-issue-monitoring.md](06-work-intake-and-issue-monitoring.md)).
 - [ ] Successful bootstrap initializes or attaches per-user local state for the project (see [02-local-state.md](02-local-state.md)) before entering the continuous orchestration loop.
 - [ ] Config loaded at bootstrap stays in effect until the process exits.
+- [ ] Agent ↔ issue (or babysitter ↔ PR) assignment is 1:0–1 as defined above.

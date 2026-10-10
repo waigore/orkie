@@ -2,20 +2,30 @@
 
 ## Description
 
-Orkie spawns and coordinates agents from `.orkie/config.yaml`. Each live worker is one **session**: one generated session id, one **config identity** (`id`, `name`, `role`, `command`, `prompt`), and exactly one issue or, for the babysitter, exactly one pull request. A session does not take a second work item. If a project prompt tells the agent to work on other issues or PRs anyway, Orkie's tracking of those extra items is undefined. The operator accepts that risk.
+Orkie spawns and coordinates agents from `.orkie/config.yaml`. Each live worker is one **session**: one generated session id, one **config identity** (`id`, `name`, `role`, `command`, `prompt`), and exactly one issue or, for the babysitter, exactly one pull request.
 
-Issue sessions run with full ACP permissions, each in its own git worktree so concurrent sessions do not share a checkout. Worktree path, base branch, and cleanup are design details and are not specified here. Orchestration decides whether to spawn, stop, or leave sessions alone, within the session caps from [01-project-bootstrap-and-config.md](01-project-bootstrap-and-config.md).
+**Agent ↔ issue mapping is 1:0–1.** Orkie always assigns at most one issue to a session, and an issue has at most one Orkie agent working on it. The same 1:0–1 rule applies to the babysitter and a PR. If a project prompt steers the agent elsewhere, Orkie still tracks only the bound work item.
 
-Claiming an issue applies one project-wide claim label (default `orkie:claimed`). The label does not encode the config id or the session id. Local claim records store the config agent id. Local session records store whether a session is working. Graceful shutdown releases claim labels. If the process crashes, or a label release does not happen, the labels still on the tracker are the claims to fulfill, and Orkie spawns new sessions for them. A second live process for the same GitHub repository refuses to start.
+**Stopping is an agent decision.** Agents may exit whenever they consider the bound work done or ready. The orchestrator does not decide completion. When an issue-session agent exits, the orchestrator releases that issue's claim. That is the whole stop path for successful work.
 
-## Users and use cases
+Issue sessions run with full ACP permissions, each in its own git worktree so concurrent sessions do not share a checkout (see [Worktrees](#worktrees)). Orchestration decides whether to claim, spawn, or release under the session caps from [01-project-bootstrap-and-config.md](01-project-bootstrap-and-config.md).
+
+**Claim then spawn.** Claiming an issue applies one project-wide claim label (default `orkie:claimed`), then spawns. The label does not encode the config id or the session id. The working session binds the agent to that issue. There is no local claim. After three consecutive failed spawn attempts for an issue, counted from spawn-failure records, Orkie warns the operator, flags the failure on the dashboard, and removes the claim label so it cannot stick forever.
+
+Orkie owns claim labels and reads claim status only from the tracker. A working session is kept, including when a lower issue number is also labeled. If its label disappears, Orkie puts the label back and does not stop the session. A label with no working session is removed when the issue is closed, no longer intake, matches no configured agent, has exhausted three spawn attempts, or does not fit in the room left by working sessions. Excess of those labels are removed highest issue number first. When several agents match, Orkie spawns the earliest agent in `agents` that still has room under its cap and the global cap, and it keeps spawning until those caps are full. An earlier agent that is already at its cap does not reserve the issue. Agents exit on their own when they finish; the orchestrator does not hold a slot for a busy agent. Graceful shutdown removes the claim label for each issue session it stops. A second live process for the same GitHub repository refuses to start.
+
+## Use cases
+
+Actors are defined in [users.md](users.md).
 
 - **Project maintainer**: Declares agents, triggers, caps, and prompts in YAML.
-- **Continuous Orkie process**: Claims issues, spawns up to the caps, and respawns after a crash to fulfill leftover claim labels.
-- **Dashboard operator**: Observes sessions and may kill one. The killed session stops working and its issue claim is released.
+- **Continuous Orkie process** / **Orchestration**: Claims issues, spawns up to the caps, fulfills leftover claim labels that still fit the swarm, and releases those that do not.
+- **Dashboard user**: Observes agents and issues and may kill a session. The killed session stops working and its issue claim is released.
 - **Collaborator on GitHub**: Sees the claim label on issues Orkie currently claims.
 
 ## Identities
+
+Shared terms: [vocabulary.md](vocabulary.md). Comparison:
 
 | | Config identity | Session identity |
 |--|-----------------|------------------|
@@ -23,105 +33,115 @@ Claiming an issue applies one project-wide claim label (default `orkie:claimed`)
 | Stable across issues | Yes | No. A new spawn is a new session id |
 | Fields | `id`, `name`, `role`, `command`, `prompt` | Session id, config id, one bound issue or PR, working flag |
 | Caps | Per-agent and global ceilings count sessions of that config id | One session is one unit of capacity |
-| Dashboard | Grouping and display name | One row per session |
+| Dashboard | Agent view grouping | One row per working session |
+
+## Worktrees
+
+Minimal v1 policy:
+
+| Detail | Rule |
+|--------|------|
+| Location | Under the project state directory, e.g. `~/.local/share/orkie/<owner>--<repo>/worktrees/<session_id>/` |
+| Base | The branch of the checkout where Orkie was started, or that checkout's HEAD when detached |
+| Cleanup | Remove the worktree when the session ends (agent exit, kill, or shutdown) |
 
 ## User stories
 
-### Spawn from current trigger matches
+### Claim then spawn for a new match
 
 **Given** an intake issue that matches an agent's trigger, has no claim, and both that agent's cap and the global cap have room  
 **When** orchestration fills free session slots  
-**Then** it spawns one new session of that config agent for that one issue, with the substituted prompt
+**Then** it applies the claim label, then spawns one new session of that config agent for that one issue, with the substituted prompt. On successful spawn, the session is working. No local claim is written
 
 ### One session handles one issue
 
 **Given** a session was spawned for an issue  
 **When** that session is working  
-**Then** Orkie does not assign it another issue. Completion, kill, shutdown, or a failed spawn ends that session's binding
+**Then** Orkie does not assign it another issue, and does not assign a second agent to that issue. Completion (agent exit), kill, shutdown, or three-strike spawn release ends that session's binding
 
 ### Agent finish releases the claim
 
 **Given** a session holds an issue claim  
 **When** the ACP session exits on its own  
-**Then** the session is not working, Orkie removes the claim label, and the local claim record is cleared. Whether a later poll spawns again depends on triggers and caps. Whether the agent exits at all is up to the project prompt
+**Then** the session is not working and Orkie removes the claim label. Whether a later poll spawns again depends on triggers and caps. Whether and when the agent exits is up to the agent and the project prompt, not the orchestrator
 
 ### Caps limit spawn fan-out
 
 **Given** ten intake issues match triggers and both the per-agent limit and the global limit are at their defaults of 1  
 **When** orchestration spawns  
-**Then** it starts one issue session. The other nine stay unclaimed until a slot is free
+**Then** it claims and starts one issue session. The other nine stay unclaimed until a slot is free
 
-### Recovered claims are fulfilled before new matches
+### Labeled issues that fit the swarm are fulfilled before new matches
 
-**Given** startup has marked every session not working, and an open non-PR issue still has the claim label, a local config agent id, and still matches that agent's trigger  
+**Given** startup has marked every session not working, and an open intake issue still has the claim label, still matches at least one configured agent, and fulfilling it fits in the room left by working sessions  
 **When** orchestration fills slots  
-**Then** it first spawns sessions for those recovered claims, in ascending issue-number order, up to the caps. Remaining room then goes to unclaimed trigger matches, also in ascending issue-number order. When several agents match a new issue, the earlier agent in `agents` wins
+**Then** it first spawns sessions for those labeled issues, in ascending issue-number order, up to the room left by working sessions. The agent is the earliest entry in `agents` that matches and still has room. Remaining room then goes to unlabeled trigger matches, also in ascending issue-number order, with the same agent rule
 
-### A stale claim label is released instead of fulfilled
+### Claims that do not fit the swarm are released
 
-**Given** startup finds the claim label on an issue that is closed, is a pull request, or no longer matches the stored agent's trigger  
-**When** a local claim record names the owner  
-**Then** Orkie removes the claim label and drops the local claim. It does not spawn a session for that issue
+**Given** a claim label is present, no session is working on that issue, and the issue is closed, is not intake, matches no configured agent, or would exceed the room left after working sessions and lower issue numbers are counted  
+**When** orchestration reconciles labels  
+**Then** Orkie removes the claim label. A working session is not stopped to free a slot for a lower issue number. Excess labels with no working session are removed in descending issue-number order
 
-### A recovered claim waits when caps are full
+### A recovered claim waits only while under the three-strike spawn budget
 
-**Given** more recovered claim labels exist than current caps allow  
-**When** a cycle runs  
-**Then** the unfulfilled labels stay on those issues, their sessions stay not working, and a later cycle spawns when a slot is free
+**Given** a recovered claim fits the swarm and caps allow a slot, but spawn fails  
+**When** orchestration records the failure  
+**Then** the label stays, a spawn-failure record stores the attempt, and the next poll may retry. After the third consecutive failure, Orkie warns the operator, flags the spawn failure as released on the dashboard, and removes the claim label
 
-### Remote claim labels win at startup
+### Remote claim labels win at startup for presence; Orkie owns release
 
 **Given** the process has just started and no session is working yet  
-**When** an issue's claim label and the local claim record disagree  
-**Then** a label that is absent means the claim was released: Orkie drops the local claim and does not spawn. A label that is present with a local config agent id is a claim to fulfill. A label that is present with no local owner is logged, left on the issue, and not spawned, because the label does not say which agent owns it
+**When** intake reports which open issues carry the claim label  
+**Then** an absent label means the issue is not claimed, and Orkie does not apply one from local memory. A present label on an issue that still matches an agent is fulfilled or removed under swarm-fit and caps. A present label on an issue that is closed, not intake, or matches no agent is removed
 
 ### A working session keeps its claim label
 
 **Given** a session is working on an issue  
 **When** the claim label disappears from that issue while the session is alive  
-**Then** Orkie re-applies the label. It does not stop the session because of that drift. Remote precedence is the startup rule, when nothing is working yet
+**Then** Orkie re-applies the label. It does not stop the session because of that drift. When no session is working, an absent label means the issue is not claimed
 
 ### Closed issues and lost triggers release the claim
 
 **Given** a session is claimed on an issue  
 **When** intake shows the issue closed, no longer an intake issue, or no longer matching that agent's trigger  
-**Then** orchestration stops the session, removes the claim label, and clears the claim record
+**Then** orchestration stops the session if one is working, and removes the claim label
 
 ### Dedicated git worktree per session
 
 **Given** orchestration is about to spawn a session  
 **When** the agent workspace is prepared  
-**Then** that session gets its own git worktree so its file operations do not collide with another session's worktree
+**Then** that session gets its own git worktree under the [Worktrees](#worktrees) policy so its file operations do not collide with another session's worktree
 
-### Claim the issue with the one claim label
+### Claim the issue before spawn
 
 **Given** orchestration assigns a session to an issue  
 **When** that assignment is established  
-**Then** Orkie applies the configured claim label, or `orkie:claimed` when unset, and persists the claim record with the config agent id
+**Then** Orkie first applies the configured claim label (or `orkie:claimed` when unset), then attempts the ACP spawn
 
 ### Human kill releases the claim
 
 **Given** an operator kills an issue session from the dashboard  
 **When** the kill completes  
-**Then** that session is not working, its claim label is removed, and the claim record is cleared. A later trigger match can spawn a new session
+**Then** that session is not working and its claim label is removed. A later trigger match can spawn a new session
 
 ### Graceful shutdown releases claims
 
 **Given** one or more issue sessions are active  
 **When** the Orkie process shuts down via SIGINT or SIGTERM  
-**Then** orchestration spawns nothing new, terminates sessions via ACP, removes the claim labels it holds, and persists the released claims as gone and every session as not working
+**Then** orchestration spawns nothing new, terminates sessions via ACP, removes the claim label for each issue session it stops, and persists every session as not working
 
-### A label that survives shutdown is fulfilled on the next start
+### A label that survives shutdown is reconciled on the next start
 
 **Given** shutdown, a crash, or a failed label removal left the claim label on an issue  
-**When** the same user starts Orkie again on the same machine and a local claim record still has the config agent id  
-**Then** no old session is treated as working, and orchestration spawns a new session of that config agent to fulfill the claim, subject to caps
+**When** the same user starts Orkie again on the same machine  
+**Then** no old session is treated as working. Orchestration reads the label from the tracker and either spawns a session or removes the label under the swarm-fit rules, subject to caps
 
-### A failed spawn waits for the next poll
+### Spawn failures retry up to three times then release
 
-**Given** a spawn for a config agent and an issue fails, or a babysitter spawn for a PR fails  
+**Given** a spawn for a config agent and a claimed issue fails  
 **When** orchestration records the result  
-**Then** that pair stays eligible, no claim is held, and the failure does not occupy a session slot. The same pair is not retried until the next poll. There is no extra backoff. The spawn-failure record remains visible on the dashboard through that wait. A successful later spawn, or the work item becoming ineligible, clears the record
+**Then** the label remains through attempts 1 and 2 (retried on later polls, no extra backoff), the spawn-failure record stores the attempt and is visible on the dashboard, and the failure does not occupy a session slot. On the third consecutive failure, Orkie warns, flags the failure, and removes the claim label. A successful spawn clears spawn-failure records for that issue. Babysitter spawn failures use the same three-attempt visibility without a claim label. After three failures that PR is skipped until a later poll finds it no longer selectable, which clears its failures. The next lowest selectable PR may be spawned on that cycle
 
 ### A second live Orkie refuses to start
 
@@ -133,23 +153,25 @@ Claiming an issue applies one project-wide claim label (default `orkie:claimed`)
 
 **Given** the babysitter is enabled or disabled  
 **When** orchestration runs issue assignment  
-**Then** babysitter behavior follows [07-pr-babysitter.md](07-pr-babysitter.md). When it is off, orchestration does not manage PRs. Babysitter sessions do not use the issue claim label and do not consume issue session caps
+**Then** babysitter behavior follows [07-pr-babysitter.md](07-pr-babysitter.md). When it is off, orchestration does not manage PRs. Babysitter sessions do not use the issue claim label and do not consume issue session caps. The orchestrator does not stop a babysitter because a PR became merge-ready; it only spawns when the babysitter trigger condition holds and no babysitter session is working
 
 ## Acceptance criteria
 
 - [ ] Config identity and session identity are distinct, as defined in this feature.
-- [ ] A session is spawned for one issue only, or one PR for the babysitter. A second work item is not assigned to it.
-- [ ] Prompt-directed work beyond that binding is undefined.
+- [ ] Agent ↔ issue (and babysitter ↔ PR) mapping is 1:0–1. A second work item is not assigned to a session; a second agent is not assigned to an issue.
+- [ ] Agents decide when to stop. On issue-session exit, orchestration releases the claim and does nothing else for completion.
 - [ ] Triggers are current-state predicates from config (`any` or `labels`), evaluated against intake issues.
 - [ ] Per-agent `max_concurrent_sessions` defaults to 1. Global `max_concurrent_sessions` defaults to 1 and is a hard ceiling across issue sessions.
-- [ ] Recovered claims are fulfilled before new trigger matches. Ordering is ascending issue number, then agent list order for new matches.
-- [ ] Each active session gets its own git worktree. Worktree path, base branch, and cleanup are design details.
+- [ ] Claim then spawn: the claim label first, then ACP spawn. No local claim is stored.
+- [ ] Labeled issues that still match an agent are fulfilled before new trigger matches. Ordering is ascending issue number. The agent is the earliest matching entry in `agents` that has room. An earlier agent already at its cap does not reserve the issue. Spawning continues until the caps are full.
+- [ ] Orkie owns claim labels and reads claim status only from the tracker. A working session is kept. A label with no working session is removed when the issue is closed, not intake, matches no agent, or does not fit in the remaining cap room. Excess of those labels are removed highest issue number first.
+- [ ] Each active session gets its own git worktree per [Worktrees](#worktrees).
 - [ ] Agent permissions are full (see [04-acp-agent-runtime.md](04-acp-agent-runtime.md)). Behavioral limits live in project prompts.
-- [ ] Claiming applies the single configured claim label and persists the config agent id on the claim record.
-- [ ] Session exit, dashboard kill, issue closure, and loss of trigger match remove that claim label and the claim record.
-- [ ] Spawn failure does not leave a claim label, does not occupy a session slot, and is not retried until the next poll. The dashboard shows that waiting failure.
-- [ ] At startup, remote claim labels take precedence: a missing label drops the local claim; a present label with a stored owner is fulfilled when that agent's trigger still matches, and is removed when it does not; a present label without an owner is logged and left in place.
-- [ ] While a session is working, Orkie re-applies a missing claim label and does not stop that session for label drift.
-- [ ] Graceful shutdown stops spawning, terminates sessions, releases claim labels, and persists that result. A label that remains is fulfilled on the next start.
+- [ ] Claiming applies the single configured claim label. The working session binds the config agent.
+- [ ] Session exit, dashboard kill, issue closure, and loss of trigger match remove that claim label.
+- [ ] Spawn failure keeps the label through two retries; the attempt is a spawn-failure record. On the third consecutive failure Orkie warns, flags the dashboard, and removes the label. A successful spawn clears that issue's spawn-failure records. Failure does not occupy a session slot.
+- [ ] At startup, an absent label means the issue is not claimed. A present label is fulfilled or removed from the tracker alone.
+- [ ] While a session is working, Orkie re-applies a missing claim label and does not stop that session for label drift or to prefer a lower issue number.
+- [ ] Graceful shutdown stops spawning, terminates sessions, removes the claim label for each issue session it stops, and persists sessions as not working. A label that remains is reconciled from the tracker on the next start.
 - [ ] A second live Orkie for the same GitHub repository refuses to start. A stale lock whose holder is not running does not block startup.
 - [ ] Optional PR babysitter participation is gated by config and specified in [07-pr-babysitter.md](07-pr-babysitter.md).

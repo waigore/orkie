@@ -6,10 +6,12 @@ Orkie talks to coding agents through the Agent Client Protocol (ACP). Agents are
 
 Each spawn creates a new **session identity**. The session is bound to one config identity from `.orkie/config.yaml` and to exactly one issue or one pull request. The prompt delivered to the session already has the variables from [01-project-bootstrap-and-config.md](01-project-bootstrap-and-config.md) substituted.
 
-## Users and use cases
+## Use cases
 
-- **Orchestrator**: Spawns an agent with a substituted prompt in a dedicated worktree and drives the session over ACP.
-- **Dashboard operator**: Views session status and logs, and kills a session using ACP-supported controls.
+Actors are defined in [users.md](users.md).
+
+- **Orchestration**: Spawns an agent with a substituted prompt in a dedicated worktree and drives the session over ACP.
+- **Dashboard user**: Views session status and logs, and kills a session using ACP-supported controls.
 - **Project maintainer**: Chooses an ACP-compatible agent command in config. OpenCode or Grok Build are the documented first-class commands. Others are allowed.
 
 ## User stories
@@ -65,7 +67,7 @@ Documented commands:
 
 **Given** one or more ACP sessions are active or recently active  
 **When** the dashboard or orchestration needs status or log output  
-**Then** Orkie obtains status and logs through ACP where available and persists or relays them for local display (see [02-local-state.md](02-local-state.md)). Display includes the config id and the session id
+**Then** Orkie obtains status and logs through ACP where available and appends them to `logs/<agent_id>.log` with a clear session id marker (see [02-local-state.md](02-local-state.md#state-layout)). Display includes the config id and the session id
 
 ### Shutdown terminates remaining agent subprocesses
 
@@ -77,13 +79,13 @@ Documented commands:
 
 **Given** an ACP session ends on its own  
 **When** the runtime reports that exit  
-**Then** the session is not working. If it held an issue claim, orchestration releases that claim. The project prompt decides whether the agent exits or keeps running
+**Then** the session is not working. If it held an issue claim, orchestration releases that claim. Whether and when the agent exits is an agent decision (guided by the project prompt), not an orchestrator decision
 
 ### Fail clearly when the agent cannot start
 
 **Given** the configured ACP command is missing or fails to start  
 **When** Orkie attempts to spawn the session  
-**Then** the failure is stored as a spawn-failure record with the config id, the issue or PR number, and a redacted error. No claim label is left behind, no session is working, and the dashboard shows the failure and that the same spawn is not retried until the next poll (see [05-agent-orchestration.md](05-agent-orchestration.md) and [08-cli-and-dashboard.md](08-cli-and-dashboard.md))
+**Then** the failure is stored as a spawn-failure record with the config id, the issue or PR number, attempt count, and a redacted error. No session is working. Claim handling (keep through three attempts, then release) is owned by orchestration (see [05-agent-orchestration.md](05-agent-orchestration.md)). The dashboard shows the failure
 
 ## Acceptance criteria
 
@@ -97,7 +99,7 @@ Documented commands:
 - [ ] Dashboard interrupt cancels the current ACP turn, leaves the session working, and leaves its issue claim in place. The dashboard has no follow-up prompt control in v1.
 - [ ] The ACP child environment includes `GITHUB_TOKEN`. Stored logs and spawn errors omit that value.
 - [ ] Agent status and logs needed by the dashboard are obtainable via ACP and/or mirrored into local state, with config id and session id.
-- [ ] Spawn failures are stored for the dashboard, do not leave a claim label or a working session, and name the config agent and work item.
-- [ ] A session that exits is not working. Claim release for that exit is owned by orchestration.
-- [ ] Orchestration owns worktree allocation (see [05-agent-orchestration.md](05-agent-orchestration.md)). The ACP runtime receives the worktree path as the agent's workspace. Where worktrees live, which base they use, and when they are removed are design details and are not part of this feature spec.
+- [ ] Spawn failures are stored for the dashboard, leave no working session, and name the config agent, work item, and attempt. Claim keep-or-release after failures is owned by orchestration.
+- [ ] A session that exits is not working. Whether the agent stops is an agent decision. Claim release for that exit is owned by orchestration.
+- [ ] Orchestration owns worktree allocation (see [05-agent-orchestration.md](05-agent-orchestration.md#worktrees)). The ACP runtime receives the worktree path as the agent's workspace.
 - [ ] Process-wide graceful shutdown terminates remaining ACP agent subprocesses. They do not remain running after Orkie exits.
