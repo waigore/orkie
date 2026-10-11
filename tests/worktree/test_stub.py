@@ -19,7 +19,6 @@ def test_resolve_base_caches(tmp_path: Path) -> None:
 
 def test_create_raises_when_git_missing(tmp_path: Path) -> None:
     service = WorktreeService(tmp_path, tmp_path)
-    service._base = ("deadbeef", "main")
     with mock.patch("orkie.worktree.subprocess.run", side_effect=FileNotFoundError):
         with pytest.raises(WorktreeError, match="git"):
             service.create("s1")

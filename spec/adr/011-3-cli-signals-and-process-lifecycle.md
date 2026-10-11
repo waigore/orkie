@@ -43,7 +43,7 @@ parse args -> bootstrap ([003-4](003-4-config-load-and-bootstrap-sequence.md))
 1. Stop new intake cycles and new spawns.
 2. Dashboard controls fail closed ([012-3](012-3-dashboard-stack-and-control-api.md)).
 3. End every live ACP session by the delete path ([006-2](006-2-acp-agent-runtime.md)).
-4. Remove session worktrees ([008-1](008-1-git-worktrees.md)). A removal failure is logged and does not change the exit code.
+4. Remove session worktrees ([008-2](008-2-git-worktrees.md)). A removal failure is logged and does not change the exit code.
 5. Shut down the dashboard HTTP server and join its thread.
 6. Leave agent logs on disk. Release the process lock and **unlink the `lock` file** so it does not remain after a clean exit ([004-3](004-3-local-state-format-and-process-lock.md)). Process-local claims, snapshot, and spawn failures disappear with the process.
 7. Exit **0**.

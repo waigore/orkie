@@ -249,6 +249,7 @@ class Orchestrator:
                 error=str(exc),
             )
             return
+        self._refresh_start_checkout()
         prompt = substitute_prompt(
             agent.prompt_template,
             session_id=session_id,
@@ -326,6 +327,7 @@ class Orchestrator:
                 error=str(exc),
             )
             return
+        self._refresh_start_checkout()
         prompt = substitute_prompt(
             babysitter.prompt_template,
             session_id=session_id,
@@ -391,6 +393,11 @@ class Orchestrator:
                 f"after three spawn failures for agent {agent_name} ({agent_id})",
                 file=sys.stderr,
             )
+
+    def _refresh_start_checkout(self) -> None:
+        sha, branch = self._ctx.worktree.resolve_base()
+        self._ctx.start_commit_sha = sha
+        self._ctx.start_branch_or_detached = branch
 
     def _drop_claim(self, issue_number: int) -> None:
         claims = [

@@ -2,9 +2,11 @@
 
 ## Status
 
-Accepted
+Superseded
 
-Supersedes [008](superseded/008-git-worktrees.md).
+Superseded by [008-2](../008-2-git-worktrees.md).
+
+Supersedes [008](008-git-worktrees.md).
 
 ## Context
 

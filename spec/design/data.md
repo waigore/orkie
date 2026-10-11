@@ -2,7 +2,7 @@
 
 | Features | ADRs |
 |----------|------|
-| [02](../feature/02-local-state.md), [04](../feature/04-acp-agent-runtime.md), [05](../feature/05-agent-orchestration.md), [06](../feature/06-work-intake-and-issue-monitoring.md) | [004](../adr/004-3-local-state-format-and-process-lock.md), [008](../adr/008-1-git-worktrees.md), [009](../adr/009-3-intake-poll-and-delta.md), [013](../adr/013-minimize-persisted-state.md) |
+| [02](../feature/02-local-state.md), [04](../feature/04-acp-agent-runtime.md), [05](../feature/05-agent-orchestration.md), [06](../feature/06-work-intake-and-issue-monitoring.md) | [004](../adr/004-3-local-state-format-and-process-lock.md), [008](../adr/008-2-git-worktrees.md), [009](../adr/009-3-intake-poll-and-delta.md), [013](../adr/013-minimize-persisted-state.md) |
 
 On-disk vs in-memory meanings come from feature [02](../feature/02-local-state.md). Lock and log mechanics come from ADR [004](../adr/004-3-local-state-format-and-process-lock.md). Persistence principle: ADR [013](../adr/013-minimize-persisted-state.md). This document is the implementable schema and ownership map.
 
@@ -200,7 +200,7 @@ Dashboard filters: lines containing `session_id=<that session's id>`, last 200 a
 
 ## Worktrees
 
-Directory: `worktrees/<session_id>/`. Not JSON. Owning git directory discovered from the worktree (git metadata), not stored as a separate state field. The start-checkout commit and the human branch name / `detached` are **in-memory only** ([008](../adr/008-1-git-worktrees.md)).
+Directory: `worktrees/<session_id>/`. Not JSON. Owning git directory discovered from the worktree (git metadata), not stored as a separate state field. The start-checkout tip commit and branch name (or `detached` before the first successful sync) are **in-memory only** and refresh after each successful sync ([008](../adr/008-2-git-worktrees.md)).
 
 ## Other in-memory (not on disk)
 
@@ -210,7 +210,7 @@ Directory: `worktrees/<session_id>/`. Not JSON. Owning git directory discovered 
 | `shutdown_event`, `immediate_kill`, shutdown-prompt flag | cli | all |
 | Cycle lock | cli / orchestration / dashboard | — |
 | Last intake error string | intake | dashboard |
-| Start-checkout commit and branch or `detached` | worktree at bootstrap | dashboard issue view; worktree create |
+| Start-checkout commit and branch or `detached` | worktree (bootstrap + after each sync) | dashboard issue view |
 | Effective listen port | cli | dashboard URL print |
 | Loaded `Config` | cli | all modules |
 

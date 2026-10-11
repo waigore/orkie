@@ -72,7 +72,7 @@ Companion product docs: [vocabulary](../feature/vocabulary.md), [users](../featu
 | [005 Connector](../adr/005-2-connector-interface-and-github-client.md) | components (`connectors`) |
 | [006 ACP](../adr/006-2-acp-agent-runtime.md) | components (`acp`), sequences |
 | [007 Orchestration cycle](../adr/007-3-orchestration-cycle-and-claim-session-state-machine.md) | sequences, components (`orchestration`) |
-| [008 Worktrees](../adr/008-1-git-worktrees.md) | components (`worktree`), data |
+| [008 Worktrees](../adr/008-2-git-worktrees.md) | components (`worktree`), data |
 | [009 Intake](../adr/009-3-intake-poll-and-delta.md) | components (`intake`), sequences, data |
 | [010 Babysitter](../adr/010-2-pr-babysitter-lifecycle.md) | sequences, components (`orchestration`) |
 | [011 CLI / signals](../adr/011-3-cli-signals-and-process-lifecycle.md) | ui, sequences, components (`cli`) |

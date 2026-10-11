@@ -27,7 +27,7 @@ Feature [08](../feature/08-cli-and-dashboard.md) requires a loopback web UI with
 |------|------|
 | `GET /` | Index linking to the two views |
 | `GET /agents` | Agent view: working sessions (config id, name, session id, issue or PR, working), logs from `logs/<agent_id>.log` filtered by `session_id=` (including permission-grant lines), spawn failures |
-| `GET /issues` | Issue view: repo name; base branch or `detached` from memory ([008-1](008-1-git-worktrees.md)); intake issues that have a local claim, with that claim's `agent_id` and the live session id when one is working; intake issues without a claim; three-strike warnings on either list when any spawn-failure row for that issue has `attempt` 3 (after a three-strike drop the issue is unclaimed) |
+| `GET /issues` | Issue view: repo name; base branch or `detached` from memory ([008-2](008-2-git-worktrees.md)); intake issues that have a local claim, with that claim's `agent_id` and the live session id when one is working; intake issues without a claim; three-strike warnings on either list when any spawn-failure row for that issue has `attempt` 3 (after a three-strike drop the issue is unclaimed) |
 | `GET /static/<path>` | Packaged static file (e.g. `dashboard.css`) |
 
 There is no separate permissions page. Grants are lines in the agent log.

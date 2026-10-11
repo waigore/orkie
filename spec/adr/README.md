@@ -72,7 +72,7 @@ Anything under `spec/adr/*.md` (except history links) is current — link those 
 | [005](005-2-connector-interface-and-github-client.md) | Connector interface and GitHub client | Accepted | 03, 06, 07 |
 | [006](006-2-acp-agent-runtime.md) | ACP agent runtime | Accepted | 04, 05 |
 | [007](007-3-orchestration-cycle-and-claim-session-state-machine.md) | Orchestration cycle and claim/session state machine | Accepted | 05, 02, 06 |
-| [008](008-1-git-worktrees.md) | Git worktrees | Accepted | 05, 07 |
+| [008](008-2-git-worktrees.md) | Git worktrees | Accepted | 05, 07 |
 | [009](009-3-intake-poll-and-delta.md) | Intake poll and delta | Accepted | 06, 02 |
 | [010](010-2-pr-babysitter-lifecycle.md) | PR babysitter lifecycle | Accepted | 07, 05 |
 | [011](011-3-cli-signals-and-process-lifecycle.md) | CLI, signals, and process lifecycle | Accepted | 08, 01 |

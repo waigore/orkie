@@ -121,6 +121,8 @@ sequenceDiagram
     Orch->>St: save claim agent_id issue_number claimed_at
   end
   Orch->>Wt: create session_id
+  Note over Wt: sync origin then worktree add --detach
+  Orch->>Orch: refresh start tip and branch from resolve_base
   Orch->>Acp: spawn session_id command prompt worktree
   Acp-->>Orch: SessionHandle
   Orch->>St: clear spawn_failures for issue
@@ -132,7 +134,7 @@ sequenceDiagram
 |-----------|----------|
 | Step 6, stored agent at cap or global cap full | Leave the claim queued. Do not give it to another agent. Do not stop a working session |
 | Step 7, no agent has room | Stop. Do not write a claim that cannot spawn on this tick |
-| Worktree create fails | Spawn-failure record; claim stays (attempts 1–2); no working session |
+| Sync or worktree create fails | Spawn-failure record; claim stays (attempts 1–2); no working session; no leftover worktree |
 | ACP handshake or initial prompt fails | Remove worktree; spawn-failure record; claim stays through attempts 1–2 |
 | Attempt 3 (issue) | Warn stderr; `released=true`; drop the local claim; write no fourth row; no slot occupied |
 | Attempt 3 (babysitter PR) | Skip that PR until not selectable; no issue claim |
@@ -198,7 +200,7 @@ flowchart TD
   classify --> pick[Lowest selectable blocked not 3-strike]
   pick --> found{found?}
   found -->|no| idle[Idle]
-  found -->|yes| spawn[mint session_id worktree acp.spawn pr_number]
+  found -->|yes| spawn[mint session_id sync create worktree acp.spawn pr_number]
   spawn --> done[Done]
   idle --> done
   skip --> done

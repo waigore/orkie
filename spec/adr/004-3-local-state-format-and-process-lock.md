@@ -22,7 +22,7 @@ Feature [02](../feature/02-local-state.md) defines the per-user state root, what
 |------|----------|--------|
 | `lock` | Only while this process holds the instance lock | JSON object: `pid` (int), `started_at` (UTC ISO-8601 string). Separate file. Checked by every starter. Removed on normal shutdown after the flock is released path completes (see below) |
 | `logs/<agent_id>.log` | Survives stop and start | Append-only text; UTF-8; each line includes `session_id=` and `issue=` or `pr=` when known |
-| `worktrees/<session_id>/` | Life of a live session; leftovers removed at the next start | Directory. Not JSON. Owning git directory discovered from the worktree ([008-1](008-1-git-worktrees.md)) |
+| `worktrees/<session_id>/` | Life of a live session; leftovers removed at the next start | Directory. Not JSON. Owning git directory discovered from the worktree ([008-2](008-2-git-worktrees.md)) |
 
 No SQLite, no pickle, no YAML for runtime state. No on-disk `claims`, `snapshot`, `sessions`, or `spawn_failures` documents.
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Superseded by [008-1](../008-1-git-worktrees.md).
+Superseded by [008-1](008-1-git-worktrees.md) (itself superseded by [008-2](../008-2-git-worktrees.md)).
 
 ## Context
 

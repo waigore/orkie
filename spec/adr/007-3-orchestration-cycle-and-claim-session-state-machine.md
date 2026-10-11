@@ -107,4 +107,4 @@ Kill uses the ACP delete path and, for an issue session, drops the local claim i
 - `orkie.orchestration` is the only module that writes or drops claims and decides spawns.
 - Dashboard kill calls orchestration, so claim drop stays in this cycle's rules.
 - Offline tests drive a fake connector and a fake ACP through one cycle and assert claim and session transitions in memory.
-- Worktree create and remove bookend a live session ([008-1](008-1-git-worktrees.md)).
+- Worktree create and remove bookend a live session ([008-2](008-2-git-worktrees.md)).

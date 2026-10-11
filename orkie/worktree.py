@@ -47,8 +47,32 @@ class WorktreeService:
         self._base = (sha, branch_or_detached)
         return self._base
 
+    def sync_to_remote(self) -> tuple[str, str]:
+        self._run(["git", "-C", str(self._project_root), "fetch", "origin"])
+        branch = self._resolve_sync_branch()
+        current = self._current_branch_or_none()
+        if current != branch:
+            self._run(
+                ["git", "-C", str(self._project_root), "checkout", branch]
+            )
+        self._run(
+            [
+                "git",
+                "-C",
+                str(self._project_root),
+                "reset",
+                "--hard",
+                f"origin/{branch}",
+            ]
+        )
+        sha = self._run(
+            ["git", "-C", str(self._project_root), "rev-parse", "HEAD"]
+        ).strip()
+        self._base = (sha, branch)
+        return self._base
+
     def create(self, session_id: str) -> Path:
-        commit_sha, _ = self.resolve_base()
+        commit_sha, _ = self.sync_to_remote()
         path = self._state_root / "worktrees" / session_id
         path.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -113,6 +137,51 @@ class WorktreeService:
         for child in root.iterdir():
             if child.is_dir():
                 self.remove(child)
+
+    def _current_branch_or_none(self) -> str | None:
+        try:
+            branch = self._run(
+                [
+                    "git",
+                    "-C",
+                    str(self._project_root),
+                    "symbolic-ref",
+                    "--short",
+                    "-q",
+                    "HEAD",
+                ]
+            ).strip()
+        except WorktreeError:
+            return None
+        return branch or None
+
+    def _resolve_sync_branch(self) -> str:
+        current = self._current_branch_or_none()
+        if current is not None:
+            return current
+        try:
+            remote_head = self._run(
+                [
+                    "git",
+                    "-C",
+                    str(self._project_root),
+                    "symbolic-ref",
+                    "--short",
+                    "refs/remotes/origin/HEAD",
+                ]
+            ).strip()
+        except WorktreeError as exc:
+            raise WorktreeError(
+                "detached HEAD and could not resolve origin/HEAD default branch"
+            ) from exc
+        prefix = "origin/"
+        if remote_head.startswith(prefix):
+            return remote_head[len(prefix) :]
+        if remote_head:
+            return remote_head
+        raise WorktreeError(
+            "detached HEAD and could not resolve origin/HEAD default branch"
+        )
 
     def _run(self, command: list[str]) -> str:
         try:

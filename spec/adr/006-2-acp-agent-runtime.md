@@ -95,7 +95,7 @@ If the process cannot start, the handshake fails (including protocol version mis
 ## Consequences for design
 
 - `orkie.orchestration` mints `session_id`, calls `worktree.create`, then `acp.spawn(session_id, ...)`, and owns claim drop on kill and on exit while running.
-- `orkie.acp` exposes `spawn`, `interrupt`, `delete_session`, and the delete-path helper used by kill and shutdown. It does not create worktrees ([008-1](008-1-git-worktrees.md)). Spawn runs initialize, optional authenticate, then session/new and the initial prompt.
+- `orkie.acp` exposes `spawn`, `interrupt`, `delete_session`, and the delete-path helper used by kill and shutdown. It does not create worktrees ([008-2](008-2-git-worktrees.md)). Spawn runs initialize, optional authenticate, then session/new and the initial prompt.
 - Live handles live in an in-memory session table keyed by `session_id`. There is no sessions document on disk ([004-3](004-3-local-state-format-and-process-lock.md)).
 - Wire bodies for permission outcomes, prompt acceptance, authenticate, and `session/delete` live in design.
 - Tests fake the ACP client at the `orkie.acp` boundary.

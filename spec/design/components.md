@@ -19,7 +19,7 @@ One OS process per resolved `owner/name`. After successful bootstrap, these live
 | `shutdown_event` | `threading.Event` | `cli` sets; loop and dashboard observe |
 | `immediate_kill` | `threading.Event` or bool flag | Second signal during the shutdown prompt or the graceful 20 second wait |
 | Cycle lock | `threading.Lock` | Main holds for whole poll cycle; dashboard takes for one interrupt/kill |
-| Start checkout | commit sha plus branch name or `"detached"` | `worktree.resolve_base` at bootstrap; dashboard header and worktree create |
+| Start checkout | commit sha plus branch name or `"detached"` | `worktree.resolve_base` at bootstrap for initial dashboard value; refreshed after each successful sync in `worktree.create` |
 | Last intake error | `str \| None` in memory | `intake` writes; dashboard reads |
 | Effective dashboard port | `int` | CLI `--port` or config |
 
@@ -696,17 +696,17 @@ Constructed after bootstrap; `run_cycle` each poll; controls from dashboard thre
 ## `orkie.worktree`
 
 **Features:** [05](../feature/05-agent-orchestration.md) (worktrees), [07](../feature/07-pr-babysitter.md)  
-**ADRs:** [008](../adr/008-1-git-worktrees.md)
+**ADRs:** [008](../adr/008-2-git-worktrees.md)
 
 ### Purpose
 
-Create and remove per-session detached git worktrees under the state root.
+Sync the start checkout to `origin`, then create and remove per-session detached git worktrees under the state root.
 
 ### Scope
 
 | In | Out |
 |----|-----|
-| `git` CLI via subprocess; path under `state_root/worktrees/<session_id>/` | ACP; claims |
+| `git` CLI via subprocess; fetch/reset against `origin`; path under `state_root/worktrees/<session_id>/` | ACP; claims |
 
 ### Interfaces
 
@@ -716,11 +716,15 @@ class WorktreeService:
 
     def resolve_base(self) -> tuple[str, str]:
         """Return (commit_sha, branch_or_detached). branch_or_detached is branch name or 'detached'.
-        Freeze at first call (bootstrap); reuse for the process lifetime."""
+        Bootstrap may call once for an initial value. After sync_to_remote / create, returns the synced tip."""
+
+    def sync_to_remote(self) -> tuple[str, str]:
+        """Fetch origin; ensure named branch (origin/HEAD default when detached); reset --hard origin/<branch>.
+        Update and return (commit_sha, branch). Raise WorktreeError on failure."""
 
     def create(self, session_id: str) -> Path:
-        """git -C project_root worktree add --detach <state_root>/worktrees/<session_id> <commit_sha>
-        Missing git → raise WorktreeError (becomes spawn failure)."""
+        """sync_to_remote, then git worktree add --detach <state_root>/worktrees/<session_id> <tip_sha>.
+        Sync or create failure → raise WorktreeError (becomes spawn failure); no leftover path."""
 
     def remove(self, worktree_path: Path) -> None:
         """Best-effort: git worktree remove --force <path> from discovered git dir;
@@ -732,7 +736,7 @@ class WorktreeService:
 
 ### Lifecycle
 
-`resolve_base` during bootstrap, once the project root is known, and the result is stored on `RuntimeContext`. `remove_leftovers` during state prepare. `create` immediately before `acp.spawn`, using the session id orchestration minted. `remove` on agent exit while running, dashboard kill, failed spawn after create, lost eligibility, and both shutdown modes.
+`resolve_base` during bootstrap, once the project root is known, and the result is stored on `RuntimeContext`. `remove_leftovers` during state prepare. `create` (sync then add) immediately before `acp.spawn`, using the session id orchestration minted; orchestration refreshes `RuntimeContext` tip/branch from `resolve_base` after a successful create. `remove` on agent exit while running, dashboard kill, failed spawn after create, lost eligibility, and both shutdown modes.
 
 ---
 

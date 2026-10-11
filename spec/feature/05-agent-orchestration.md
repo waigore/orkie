@@ -62,7 +62,7 @@ Minimal v1 policy:
 | Detail | Rule |
 |--------|------|
 | Location | Under the project state directory: `~/.local/share/orkie/<owner>--<repo>/worktrees/<session_id>/` |
-| Base | The branch of the checkout where Orkie was started, or that checkout's HEAD when detached. Bootstrap resolves this once and keeps it for the process |
+| Base | Before each spawn, sync the start checkout to `origin` and create a detached worktree at that tip. Remote is source of truth: fetch `origin`, ensure a named branch (the current branch, or the remote default via `origin/HEAD` when detached), hard-reset that branch to `origin/<branch>`, then add the worktree at the resulting commit. Local unpushed or diverged commits and dirty tracked state on the start checkout are discarded. Existing live worktrees stay on their spawn-time tip. Sync or worktree create failure fails the spawn |
 | Cleanup | Remove the worktree when the session ends (agent exit while running, dashboard kill, failed spawn after the worktree was created, or either shutdown mode). The next start removes leftovers. A removal failure is logged and does not block the cycle, shutdown, or the next start |
 
 ## User stories
@@ -125,7 +125,13 @@ Minimal v1 policy:
 
 **Given** orchestration is about to spawn a session  
 **When** the agent workspace is prepared  
-**Then** that session gets its own git worktree under the [Worktrees](#worktrees) policy, named with the session id minted for this spawn, so its file operations do not collide with another session's worktree
+**Then** Orkie syncs the start checkout to `origin` per [Worktrees](#worktrees), then that session gets its own detached git worktree at the synced tip, named with the session id minted for this spawn, so its file operations do not collide with another session's worktree and the agent starts on the latest remote commit of the branch
+
+### Sync failure fails the spawn
+
+**Given** orchestration is about to prepare a worktree and fetch, checkout, or hard-reset against `origin` fails  
+**When** the agent workspace cannot be synced  
+**Then** Orkie does not spawn, records a spawn failure, and leaves no worktree for that attempt
 
 ### Human kill drops the claim
 
@@ -173,7 +179,7 @@ Minimal v1 policy:
 - [ ] Claim, then spawn: the local claim is written first, then ACP spawn. One session id is minted per spawn and used for the worktree, the prompt, and the ACP session. Claims are process-local only.
 - [ ] A poll follows [Poll](#poll). Claims without a live session are fulfilled before new trigger matches. Fulfillment uses the agent stored on the claim. New claims use the earliest matching agent that has room, in ascending issue-number order, until the caps are full.
 - [ ] A claim waits when its agent is at cap even if another agent has room. Orkie does not drop a claim only because the cap is full, and does not stop a working session to prefer a lower issue number.
-- [ ] Each active session gets its own git worktree per [Worktrees](#worktrees). Leftovers are removed at the next start. Removal failure is logged and does not block the cycle, shutdown, or startup.
+- [ ] Each active session gets its own git worktree per [Worktrees](#worktrees). Before create, Orkie fetches `origin`, ensures a named branch (remote default when detached), hard-resets to `origin/<branch>`, and the worktree tip matches that commit. Sync failure fails the spawn with no leftover worktree. Leftovers are removed at the next start. Removal failure is logged and does not block the cycle, shutdown, or startup.
 - [ ] Agent permissions are implicit grants logged to the agent log (see [04-acp-agent-runtime.md](04-acp-agent-runtime.md)). Behavioral limits live in project prompts.
 - [ ] Session exit while running (before shutdown has started), dashboard kill, leaving intake, a stored `agent_id` absent from config, and loss of the stored agent's trigger match drop that local claim. Process exit does not preserve claims for the next start.
 - [ ] Spawn failure keeps the claim through attempts 1 and 2. On attempt 3 Orkie warns, sets `released`, drops the claim, and writes no further row. While any row for that issue has `attempt` 3, Orkie does not claim or spawn it again. Leaving intake does not clear failure rows. A successful spawn clears them. Failure does not occupy a session slot. The attempt budget resets on the next process start.

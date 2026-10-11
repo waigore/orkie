@@ -76,7 +76,7 @@ Layout detail: [feature 02](../spec/feature/02-local-state.md).
 
 ## Worktrees
 
-Each session gets a dedicated git worktree under the state tree. Orkie removes it when the session ends and cleans leftovers on the next start. Agents work in that worktree, not necessarily in your main checkout.
+Each session gets a dedicated git worktree under the state tree. Before creating it, Orkie fetches `origin`, ensures the start checkout is on a named branch (the remote default when detached), and hard-resets that branch to `origin/<branch>`. Remote is source of truth: local unpushed or diverged commits and dirty tracked files on the start checkout are discarded. The agent then gets a detached worktree at that tip. Orkie removes the worktree when the session ends and cleans leftovers on the next start. Agents work in that worktree, not in your main checkout as a shared workspace.
 
 ## GitHub connector notes
 
