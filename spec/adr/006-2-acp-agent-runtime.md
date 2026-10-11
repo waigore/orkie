@@ -60,11 +60,11 @@ While a session is running, select an option for every `session/request_permissi
 
 ### Logs and redaction
 
-Mirror agent message text and child stderr into `logs/<agent_id>.log` with `session_id=` markers ([004-2](004-2-local-state-format-and-process-lock.md)). Permission lines go to the same file. Never write the raw `GITHUB_TOKEN` value into logs or spawn-failure `error` text.
+Mirror agent message text and child stderr into `logs/<agent_id>.log` with `session_id=` markers ([004-3](004-3-local-state-format-and-process-lock.md)). Permission lines go to the same file. Never write the raw `GITHUB_TOKEN` value into logs or spawn-failure `error` text.
 
 ### Spawn failure
 
-If the process cannot start, the handshake fails (including protocol version mismatch or failed `authenticate`), or the initial prompt returns an error: no working session; return the error to orchestration for spawn-failure records and three-strike claim rules ([007-2](007-2-orchestration-cycle-and-claim-session-state-machine.md)). Advertising a non-empty `authMethods` list alone is not a spawn failure when `authenticate` succeeds. Spawn failure does not occupy a session slot. Remove a worktree created for that attempt.
+If the process cannot start, the handshake fails (including protocol version mismatch or failed `authenticate`), or the initial prompt returns an error: no working session; return the error to orchestration for spawn-failure records and three-strike claim rules ([007-3](007-3-orchestration-cycle-and-claim-session-state-machine.md)). Advertising a non-empty `authMethods` list alone is not a spawn failure when `authenticate` succeeds. Spawn failure does not occupy a session slot. Remove a worktree created for that attempt.
 
 ## Reasoning
 
@@ -96,6 +96,6 @@ If the process cannot start, the handshake fails (including protocol version mis
 
 - `orkie.orchestration` mints `session_id`, calls `worktree.create`, then `acp.spawn(session_id, ...)`, and owns claim drop on kill and on exit while running.
 - `orkie.acp` exposes `spawn`, `interrupt`, `delete_session`, and the delete-path helper used by kill and shutdown. It does not create worktrees ([008-1](008-1-git-worktrees.md)). Spawn runs initialize, optional authenticate, then session/new and the initial prompt.
-- Live handles live in an in-memory session table keyed by `session_id`. The on-disk session document is deleted on shutdown and at the next start ([004-2](004-2-local-state-format-and-process-lock.md)).
+- Live handles live in an in-memory session table keyed by `session_id`. There is no sessions document on disk ([004-3](004-3-local-state-format-and-process-lock.md)).
 - Wire bodies for permission outcomes, prompt acceptance, authenticate, and `session/delete` live in design.
 - Tests fake the ACP client at the `orkie.acp` boundary.

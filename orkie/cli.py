@@ -150,10 +150,6 @@ def run_bootstrap(project: Path | None, *, port: int | None) -> RuntimeContext:
         raise SystemExit(1) from exc
     try:
         store.ensure_layout()
-        store.load_claims()
-        store.load_snapshot()
-        store.load_spawn_failures()
-        store.delete_sessions()
         worktree.remove_leftovers()
     except StateError as exc:
         store.release_lock()
@@ -305,6 +301,5 @@ def shutdown(ctx: RuntimeContext, *, mode: Literal["normal", "graceful"]) -> int
     orchestrator.end_all_sessions()
     orchestrator.remove_all_worktrees()
     stop_dashboard(ctx)
-    ctx.store.delete_sessions()
     ctx.store.release_lock()
     return 0

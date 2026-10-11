@@ -281,19 +281,6 @@ class Orchestrator:
             )
             return
         ctx.sessions[session_id] = handle
-        sessions = ctx.store.load_sessions()
-        sessions.append(
-            SessionRecord(
-                session_id=session_id,
-                agent_id=agent.id,
-                issue_number=issue.number,
-                pr_number=None,
-                working=True,
-                worktree_path=str(worktree_path),
-                started_at=utc_now_iso(),
-            )
-        )
-        ctx.store.save_sessions(sessions)
         failures = clear_spawn_failures(
             ctx.store.load_spawn_failures(), issue_number=issue.number
         )
@@ -371,19 +358,6 @@ class Orchestrator:
             )
             return
         ctx.sessions[session_id] = handle
-        sessions = ctx.store.load_sessions()
-        sessions.append(
-            SessionRecord(
-                session_id=session_id,
-                agent_id=babysitter.id,
-                issue_number=None,
-                pr_number=pr.number,
-                working=True,
-                worktree_path=str(worktree_path),
-                started_at=utc_now_iso(),
-            )
-        )
-        ctx.store.save_sessions(sessions)
         cleared = clear_spawn_failures(
             ctx.store.load_spawn_failures(), pr_number=pr.number
         )
@@ -427,15 +401,7 @@ class Orchestrator:
         self._ctx.store.save_claims(claims)
 
     def _remove_session_record(self, session_id: str) -> None:
-        sessions = [
-            session
-            for session in self._ctx.store.load_sessions()
-            if session.session_id != session_id
-        ]
-        if sessions:
-            self._ctx.store.save_sessions(sessions)
-        else:
-            self._ctx.store.delete_sessions()
+        self._ctx.sessions.pop(session_id, None)
 
     def _working_issue_sessions(self) -> list[SessionRecord]:
         return [

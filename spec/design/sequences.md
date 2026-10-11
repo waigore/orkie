@@ -2,7 +2,7 @@
 
 | Features | ADRs |
 |----------|------|
-| [01](../feature/01-project-bootstrap-and-config.md), [05](../feature/05-agent-orchestration.md)–[08](../feature/08-cli-and-dashboard.md) | [003](../adr/003-3-config-load-and-bootstrap-sequence.md), [007](../adr/007-2-orchestration-cycle-and-claim-session-state-machine.md), [009](../adr/009-2-intake-poll-and-delta.md)–[012](../adr/012-3-dashboard-stack-and-control-api.md) |
+| [01](../feature/01-project-bootstrap-and-config.md), [05](../feature/05-agent-orchestration.md)–[08](../feature/08-cli-and-dashboard.md) | [003](../adr/003-4-config-load-and-bootstrap-sequence.md), [007](../adr/007-3-orchestration-cycle-and-claim-session-state-machine.md), [009](../adr/009-3-intake-poll-and-delta.md)–[012](../adr/012-3-dashboard-stack-and-control-api.md) |
 
 Happy paths are diagrams. Unhappy flows, retries, and edge cases are **Notes** under each diagram — keep the diagrams readable.
 
@@ -34,9 +34,7 @@ sequenceDiagram
   CLI->>Cfg: load_config
   CLI->>Conn: resolve_github_repo
   CLI->>Wt: resolve_base
-  CLI->>St: acquire_lock ensure_layout
-  CLI->>St: load claims snapshot spawn_failures
-  CLI->>St: delete leftover sessions
+  CLI->>St: acquire_lock ensure_layout scrub legacy docs
   CLI->>Wt: remove_leftovers
   CLI->>CLI: read GITHUB_TOKEN
   CLI->>Conn: build_connector probe_privileges
@@ -57,15 +55,14 @@ sequenceDiagram
 | `resolve_base` fails | Exit non-zero; name the git error |
 | Live lock holder (pid alive) | Exit non-zero; name `owner/name` |
 | Stale lock (pid dead) or corrupt lock JSON once the flock is held | Rewrite lock contents; continue |
-| Corrupt `claims`, `snapshot`, or `spawn_failures` | Exit non-zero; name the file |
-| Leftover `sessions` or worktrees | Delete the session file; remove worktrees best-effort. Do not resume ACP sessions and do not reap agent processes |
+| Leftover legacy JSON docs or worktrees | Unlink legacy docs without parsing; remove worktrees best-effort. Do not resume ACP sessions and do not reap agent processes |
 | Required privilege missing + interactive | Name each gap; prompt retry/abort; no loop until met or abort |
 | Required privilege missing + non-interactive | Exit non-zero; name each gap |
 | Warn-only gaps | None in v1 (probe list = required set) |
 | Dashboard port in use | Exit non-zero; name `127.0.0.1:port`; no loop |
 | Any bootstrap failure | Dashboard never presented as healthy |
 
-Strict step order is ADR [003](../adr/003-3-config-load-and-bootstrap-sequence.md) steps 1–12. Validation before lock; lock before the privilege probe. The probe is read-only.
+Strict step order is ADR [003](../adr/003-4-config-load-and-bootstrap-sequence.md) steps 1–12. Validation before lock; lock before the privilege probe. The probe is read-only.
 
 ---
 
@@ -85,16 +82,16 @@ flowchart TD
   intakeOk2 -->|no| step8[8 Babysitter if PR fetch ok]
   intakeOk2 -->|yes| step4[4 Drop claims that no longer apply]
   step4 --> step5[5 Count caps from working issue sessions]
-  step5 --> step6[6 Spawn saved claims]
+  step5 --> step6[6 Spawn claims without live session]
   step6 --> step7[7 Claim then spawn new matches]
   step7 --> step8
   step8 --> done[Cycle end]
   skip --> done
 ```
 
-Persist claim, snapshot, session, and spawn-failure updates **on each mutation** (feature 05 / ADR 007 step 9) — not as a deferred batch after step 8.
+Update in-memory claim, snapshot, and spawn-failure state **on each mutation** (feature 05 / ADR 007 step 9) — not as a deferred batch after step 8. No durable claim/snapshot/failure documents.
 
-**Locked design:** on issue-fetch failure, **skip steps 4–7**. Always run step 3. Step 3 may drop a claim when an issue session exits while Orkie is running and shutdown has not started. Step 8 runs only if the babysitter is enabled and its PR fetch succeeds (a failed PR fetch skips step 8 only). Mutations still persist as they happen.
+**Locked design:** on issue-fetch failure, **skip steps 4–7**. Always run step 3. Step 3 may drop a claim when an issue session exits while Orkie is running and shutdown has not started. Step 8 runs only if the babysitter is enabled and its PR fetch succeeds (a failed PR fetch skips step 8 only).
 
 ### Notes (poll unhappy)
 
@@ -103,7 +100,7 @@ Persist claim, snapshot, session, and spawn-failure updates **on each mutation**
 | Issue fetch fails | Keep last-good snapshot; do not drop or create claims because of the fetch; set in-memory last error; stderr + dashboard; skip 4–7; still run step 3 |
 | PR fetch fails (babysitter on) | Skip step 8 only |
 | Partial pagination | Treated as fetch failure |
-| Session exit during step 3, shutdown not started | Drop the local claim (issue), remove worktree, delete the session record, persist |
+| Session exit during step 3, shutdown not started | Drop the local claim (issue), remove worktree, drop the live session |
 | Session exit after `shutdown_event` or interactive shutdown-prompt flag | Do not drop the claim (session cleanup still runs in `shutdown`) |
 | `shutdown_event` or prompt flag set mid-cycle | Finish the current step safely without dropping claims on exits; do not start a new cycle afterward |
 
@@ -126,7 +123,7 @@ sequenceDiagram
   Orch->>Wt: create session_id
   Orch->>Acp: spawn session_id command prompt worktree
   Acp-->>Orch: SessionHandle
-  Orch->>St: save session working true clear spawn_failures for issue
+  Orch->>St: clear spawn_failures for issue
 ```
 
 ### Notes (spawn unhappy)
@@ -250,8 +247,7 @@ sequenceDiagram
   CLI->>Orch: end_all_sessions delete path
   CLI->>Wt: remove_all_worktrees
   CLI->>Dash: shutdown server join thread
-  CLI->>St: delete sessions keep claims
-  CLI->>St: release_lock
+  CLI->>St: release_lock unlink lock file
   CLI->>CLI: exit 0
 ```
 
@@ -263,7 +259,8 @@ sequenceDiagram
 | Graceful mode | `session/cancel`, then the fixed wrap-up prompt from feature 04, then 20 seconds, then the delete path. Idle status does not end the wait. A JSON-RPC error on the wrap-up prompt moves that session to the delete path |
 | Second signal during the prompt or the 20 second wait | Set `immediate_kill`; SIGKILL remaining agent process groups; continue cleanup |
 | Delete path | `session/delete` when `capabilities.session.delete` was reported, then SIGKILL if the process has not exited within 5 seconds. Without that capability, SIGKILL immediately. The 5 seconds are process exit, not the empty JSON-RPC result |
-| Claims | Kept in both modes. An exit after `shutdown_event` or the interactive shutdown-prompt flag does not drop a claim |
+| Claims | Process-local; gone when the process exits. An exit after `shutdown_event` or the interactive shutdown-prompt flag does not drop a claim while this process is still alive |
+| Lock | Unlinked on clean shutdown |
 | Worktree remove fails | Log; exit stays 0 |
 | Babysitter sessions | Ended by the same mode. No issue claim |
 | Bind never succeeded | Shutdown sequence not used; bootstrap already exited non-zero |

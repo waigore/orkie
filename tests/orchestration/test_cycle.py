@@ -127,7 +127,7 @@ def test_cycle_claims_and_spawns(tmp_path: Path) -> None:
     assert len(claims) == 1
     assert claims[0].issue_number == 42
     assert len(ctx.sessions) == 1
-    assert ctx.store.load_sessions()[0].working is True
+    assert next(iter(ctx.sessions.values())).issue_number == 42
 
 
 def test_cycle_spawn_failure_keeps_claim(tmp_path: Path) -> None:

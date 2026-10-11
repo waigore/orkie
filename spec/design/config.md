@@ -2,7 +2,7 @@
 
 | Features | ADRs |
 |----------|------|
-| [01](../feature/01-project-bootstrap-and-config.md), [03](../feature/03-connector-interface-and-github.md), [08](../feature/08-cli-and-dashboard.md) | [002](../adr/002-2-tech-stack-and-dependencies.md), [003](../adr/003-3-config-load-and-bootstrap-sequence.md) |
+| [01](../feature/01-project-bootstrap-and-config.md), [03](../feature/03-connector-interface-and-github.md), [08](../feature/08-cli-and-dashboard.md) | [002](../adr/002-2-tech-stack-and-dependencies.md), [003](../adr/003-4-config-load-and-bootstrap-sequence.md) |
 
 Canonical product schema: feature [01](../feature/01-project-bootstrap-and-config.md). This document is the implementable validation shape, defaults, and precedence.
 

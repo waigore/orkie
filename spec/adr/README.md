@@ -67,23 +67,24 @@ Anything under `spec/adr/*.md` (except history links) is current — link those 
 |----|-------|--------|----------|
 | [001](001-2-process-model-and-module-layout.md) | Process model and module layout | Accepted | All; esp. 05, 08 |
 | [002](002-2-tech-stack-and-dependencies.md) | Tech stack and dependencies | Accepted | All |
-| [003](003-3-config-load-and-bootstrap-sequence.md) | Config load and bootstrap sequence | Accepted | 01, 03, 08 |
-| [004](004-2-local-state-format-and-process-lock.md) | Local state format and process lock | Accepted | 02, 08 |
+| [003](003-4-config-load-and-bootstrap-sequence.md) | Config load and bootstrap sequence | Accepted | 01, 03, 08 |
+| [004](004-3-local-state-format-and-process-lock.md) | Local state format and process lock | Accepted | 02, 08 |
 | [005](005-2-connector-interface-and-github-client.md) | Connector interface and GitHub client | Accepted | 03, 06, 07 |
 | [006](006-2-acp-agent-runtime.md) | ACP agent runtime | Accepted | 04, 05 |
-| [007](007-2-orchestration-cycle-and-claim-session-state-machine.md) | Orchestration cycle and claim/session state machine | Accepted | 05, 02, 06 |
+| [007](007-3-orchestration-cycle-and-claim-session-state-machine.md) | Orchestration cycle and claim/session state machine | Accepted | 05, 02, 06 |
 | [008](008-1-git-worktrees.md) | Git worktrees | Accepted | 05, 07 |
-| [009](009-2-intake-poll-and-delta.md) | Intake poll and delta | Accepted | 06, 02 |
+| [009](009-3-intake-poll-and-delta.md) | Intake poll and delta | Accepted | 06, 02 |
 | [010](010-2-pr-babysitter-lifecycle.md) | PR babysitter lifecycle | Accepted | 07, 05 |
-| [011](011-2-cli-signals-and-process-lifecycle.md) | CLI, signals, and process lifecycle | Accepted | 08, 01 |
+| [011](011-3-cli-signals-and-process-lifecycle.md) | CLI, signals, and process lifecycle | Accepted | 08, 01 |
 | [012](012-3-dashboard-stack-and-control-api.md) | Dashboard stack and control API | Accepted | 08, 04 |
+| [013](013-minimize-persisted-state.md) | Minimize persisted state | Accepted | 02; all (principle) |
 
 ### Feature coverage
 
 | Feature | ADRs |
 |---------|------|
 | [01 Bootstrap and config](../feature/01-project-bootstrap-and-config.md) | 001, 002, 003, 011 |
-| [02 Local state](../feature/02-local-state.md) | 001, 002, 004, 007, 009 |
+| [02 Local state](../feature/02-local-state.md) | 001, 002, 004, 007, 009, 013 |
 | [03 Connector and GitHub](../feature/03-connector-interface-and-github.md) | 001, 002, 003, 005 |
 | [04 ACP agent runtime](../feature/04-acp-agent-runtime.md) | 001, 002, 006, 012 |
 | [05 Agent orchestration](../feature/05-agent-orchestration.md) | 001, 002, 006, 007, 008, 010 |
@@ -101,7 +102,8 @@ flowchart LR
   ADR002 --> ADR006[006 ACP]
   ADR002 --> ADR011[011 CLI]
   ADR002 --> ADR012[012 dashboard]
-  ADR004[004 state lock] --> ADR003
+  ADR013[013 minimize persist] --> ADR004[004 state lock]
+  ADR004 --> ADR003
   ADR004 --> ADR007[007 orchestration]
   ADR005 --> ADR007
   ADR005 --> ADR009[009 intake]

@@ -36,7 +36,7 @@ dashboard → state (read), orchestration (controls only)
 ## `orkie.cli`
 
 **Features:** [01](../feature/01-project-bootstrap-and-config.md), [08](../feature/08-cli-and-dashboard.md)  
-**ADRs:** [003](../adr/003-3-config-load-and-bootstrap-sequence.md), [011](../adr/011-2-cli-signals-and-process-lifecycle.md)
+**ADRs:** [003](../adr/003-4-config-load-and-bootstrap-sequence.md), [011](../adr/011-3-cli-signals-and-process-lifecycle.md)
 
 ### Purpose
 
@@ -98,7 +98,7 @@ Unix-like hosts only for process lock (macOS/Linux). Document that on refuse-sta
 ## `orkie.config`
 
 **Features:** [01](../feature/01-project-bootstrap-and-config.md)  
-**ADRs:** [002](../adr/002-2-tech-stack-and-dependencies.md), [003](../adr/003-3-config-load-and-bootstrap-sequence.md)
+**ADRs:** [002](../adr/002-2-tech-stack-and-dependencies.md), [003](../adr/003-4-config-load-and-bootstrap-sequence.md)
 
 ### Purpose
 
@@ -187,17 +187,17 @@ Called only during bootstrap (and scaffold write before re-load). Config object 
 ## `orkie.state`
 
 **Features:** [02](../feature/02-local-state.md)  
-**ADRs:** [004](../adr/004-2-local-state-format-and-process-lock.md)
+**ADRs:** [004](../adr/004-3-local-state-format-and-process-lock.md)
 
 ### Purpose
 
-Per-user state root, process lock, JSON documents, agent logs.
+Per-user state root, process lock, in-memory claims/snapshot/spawn failures, agent logs.
 
 ### Scope
 
 | In | Out |
 |----|-----|
-| Path layout; flock lock; atomic JSON save/load; append logs with redaction and a per-agent line lock; delete session records | Claim policy; intake delta; ACP |
+| Path layout; flock lock (unlink on release); in-memory get/set for claims/snapshot/spawn failures; append logs with redaction and a per-agent line lock; scrub legacy JSON docs | Claim policy; intake delta; ACP |
 
 ### Interfaces
 
@@ -253,21 +253,16 @@ class StateStore:
         """Open lock, exclusive fcntl.flock, refuse if holder pid alive, else write pid/started_at."""
 
     def release_lock(self) -> None:
-        """Release flock; leave lock file on disk."""
+        """Unlink lock while flock held, then unlock and close. Lock file must not remain after clean shutdown."""
 
     def ensure_layout(self) -> None:
-        """Create state_root, logs/, worktrees/ as needed."""
+        """Create state_root, logs/, worktrees/; scrub legacy claims/snapshot/sessions/spawn_failures files."""
 
     def load_snapshot(self) -> Snapshot | None: ...
     def save_snapshot(self, snapshot: Snapshot) -> None: ...
 
     def load_claims(self) -> list[ClaimRecord]: ...
     def save_claims(self, claims: list[ClaimRecord]) -> None: ...
-
-    def load_sessions(self) -> list[SessionRecord]: ...
-    def save_sessions(self, sessions: list[SessionRecord]) -> None: ...
-    def delete_sessions(self) -> None:
-        """Unlink the sessions document if present. Startup leftovers and shutdown. Does not parse the file."""
 
     def load_spawn_failures(self) -> list[SpawnFailureRecord]: ...
     def save_spawn_failures(self, failures: list[SpawnFailureRecord]) -> None: ...
@@ -290,11 +285,11 @@ def default_state_root(owner: str, repo: str, *, home: Path | None = None) -> Pa
     """(home or Path.home()) / '.local' / 'share' / 'orkie' / f'{owner}--{repo}'."""
 ```
 
-JSON field schemas and invariants (at most one claim per issue; exactly one of session `issue_number` / `pr_number` non-null): [data.md](data.md). Injectable `home` / `state_root` for tests.
+Field schemas and invariants (at most one claim per issue; exactly one of session `issue_number` / `pr_number` non-null): [data.md](data.md). Injectable `home` / `state_root` for tests. `SessionRecord` remains a derived view type for planning; the live session table is authoritative.
 
 ### Lifecycle
 
-Constructed when the lock is acquired. Lock held until shutdown releases it. Dashboard and orchestration share one instance. Startup calls `delete_sessions` and does not resume those records.
+Constructed when the lock is acquired. Lock held until shutdown releases and unlinks it. Dashboard and orchestration share one instance. Claims, snapshot, and spawn failures start empty in memory.
 
 ---
 
@@ -590,7 +585,7 @@ Handles exist only while Orkie runs. The on-disk session document is deleted on 
 ## `orkie.intake`
 
 **Features:** [06](../feature/06-work-intake-and-issue-monitoring.md)  
-**ADRs:** [009](../adr/009-2-intake-poll-and-delta.md)
+**ADRs:** [009](../adr/009-3-intake-poll-and-delta.md)
 
 ### Purpose
 
@@ -642,7 +637,7 @@ Invoked once per poll cycle step 2 from the main thread. Does not start a fetch 
 ## `orkie.orchestration`
 
 **Features:** [05](../feature/05-agent-orchestration.md), [07](../feature/07-pr-babysitter.md)  
-**ADRs:** [007](../adr/007-2-orchestration-cycle-and-claim-session-state-machine.md), [010](../adr/010-2-pr-babysitter-lifecycle.md)
+**ADRs:** [007](../adr/007-3-orchestration-cycle-and-claim-session-state-machine.md), [010](../adr/010-2-pr-babysitter-lifecycle.md)
 
 ### Purpose
 

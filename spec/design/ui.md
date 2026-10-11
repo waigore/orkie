@@ -2,7 +2,7 @@
 
 | Features | ADRs |
 |----------|------|
-| [01](../feature/01-project-bootstrap-and-config.md), [03](../feature/03-connector-interface-and-github.md), [08](../feature/08-cli-and-dashboard.md) | [011](../adr/011-2-cli-signals-and-process-lifecycle.md), [012](../adr/012-3-dashboard-stack-and-control-api.md) |
+| [01](../feature/01-project-bootstrap-and-config.md), [03](../feature/03-connector-interface-and-github.md), [08](../feature/08-cli-and-dashboard.md) | [011](../adr/011-3-cli-signals-and-process-lifecycle.md), [012](../adr/012-3-dashboard-stack-and-control-api.md) |
 
 Operator surfaces: the CLI and the loopback dashboard. No SPA, no auth beyond loopback, no follow-up prompt box in v1. Permission grants are lines in the agent log, not a separate page.
 
@@ -76,7 +76,7 @@ Non-interactive: missing config and missing privileges are hard failures with no
 | Code | Meaning |
 |------|---------|
 | 0 | Shutdown finished local cleanup. Claims remain. Session records are deleted. A worktree that could not be removed is logged and does not change this code |
-| non-zero | Bootstrap failure (invalid config, missing required privilege, lock held, port in use, corrupt state JSON, and the other bootstrap failures) |
+| non-zero | Bootstrap failure (invalid config, missing required privilege, lock held, port in use, and the other bootstrap failures) |
 
 ### systemd
 

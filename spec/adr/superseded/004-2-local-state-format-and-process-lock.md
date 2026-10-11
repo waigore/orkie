@@ -2,9 +2,10 @@
 
 ## Status
 
-Accepted
+Superseded by [004-3-local-state-format-and-process-lock](../004-3-local-state-format-and-process-lock.md).
 
-Supersedes [004-1](superseded/004-1-local-state-format-and-process-lock.md).
+Was Accepted.
+
 
 ## Context
 

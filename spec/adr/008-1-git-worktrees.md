@@ -20,7 +20,7 @@ Use the **`git` CLI** via `subprocess` (`orkie.worktree`). No pygit2/GitPython i
 
 `~/.local/share/orkie/<owner>--<repo>/worktrees/<session_id>/`
 
-(same state root as [004-2](004-2-local-state-format-and-process-lock.md)).
+(same state root as [004-3](004-3-local-state-format-and-process-lock.md)).
 
 ### Base
 
@@ -67,5 +67,5 @@ ACP child `cwd` is the worktree path ([006-1](006-2-acp-agent-runtime.md)). Orki
 ## Consequences for design
 
 - `orkie.orchestration` calls `worktree.create` then `acp.spawn`, and `worktree.remove` on every terminal transition.
-- Shutdown walks session worktree paths and removes them after ACP delete ([011-2](011-2-cli-signals-and-process-lifecycle.md)). Startup removes leftovers the same way.
+- Shutdown walks session worktree paths and removes them after ACP delete ([011-3](011-3-cli-signals-and-process-lifecycle.md)). Startup removes leftovers the same way.
 - Tests can stub `orkie.worktree` to temp dirs without a real git repo when unit-testing orchestration alone; integration tests may use a temp git repo.

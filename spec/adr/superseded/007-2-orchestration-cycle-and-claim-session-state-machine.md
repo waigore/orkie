@@ -2,9 +2,10 @@
 
 ## Status
 
-Accepted
+Superseded by [007-3-orchestration-cycle-and-claim-session-state-machine](../007-3-orchestration-cycle-and-claim-session-state-machine.md).
 
-Supersedes [007-1](superseded/007-1-orchestration-cycle-and-claim-session-state-machine.md).
+Was Accepted.
+
 
 ## Context
 

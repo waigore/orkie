@@ -1,4 +1,4 @@
-"""Per-user state root, process lock, JSON documents, agent logs."""
+"""Per-user state root, process lock, in-memory runtime docs, agent logs."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from typing import Any
 
 
 class StateError(Exception):
-    """Corrupt or unusable state document."""
+    """Unusable state (e.g. lock held by another live process)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,6 +62,9 @@ class SpawnFailureRecord:
     at: str
 
 
+_LEGACY_DOCUMENTS = ("claims", "snapshot", "sessions", "spawn_failures")
+
+
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -84,6 +87,10 @@ class StateStore:
         self._lock_fd: int | None = None
         self._log_locks: dict[str, threading.Lock] = {}
         self._log_locks_guard = threading.Lock()
+        self._doc_lock = threading.Lock()
+        self._claims: list[ClaimRecord] = []
+        self._snapshot: Snapshot | None = None
+        self._spawn_failures: list[SpawnFailureRecord] = []
 
     @property
     def state_root(self) -> Path:
@@ -106,17 +113,22 @@ class StateStore:
         raw = os.read(fd, 65536)
         if raw:
             holder_alive = False
+            data: dict[str, Any] | None
             try:
-                data = json.loads(raw.decode("utf-8"))
+                parsed = json.loads(raw.decode("utf-8"))
             except (json.JSONDecodeError, UnicodeDecodeError):
-                data = None
-            if isinstance(data, dict) and type(data.get("pid")) is int:
+                parsed = None
+            if isinstance(parsed, dict) and type(parsed.get("pid")) is int:
+                data = parsed
                 pid = data["pid"]
                 if _pid_alive(pid):
                     holder_alive = True
+            else:
+                data = None
             if holder_alive:
                 fcntl.flock(fd, fcntl.LOCK_UN)
                 os.close(fd)
+                assert data is not None
                 raise StateError(f"another Orkie process is running (pid {data['pid']})")
             # Stale or corrupt lock JSON once flock held: overwrite below.
         started = utc_now_iso()
@@ -130,7 +142,12 @@ class StateStore:
     def release_lock(self) -> None:
         if self._lock_fd is None:
             return
+        lock_path = self._state_root / "lock"
         try:
+            try:
+                lock_path.unlink()
+            except FileNotFoundError:
+                pass
             fcntl.flock(self._lock_fd, fcntl.LOCK_UN)
         finally:
             os.close(self._lock_fd)
@@ -140,106 +157,45 @@ class StateStore:
         self._state_root.mkdir(parents=True, exist_ok=True)
         (self._state_root / "logs").mkdir(exist_ok=True)
         (self._state_root / "worktrees").mkdir(exist_ok=True)
+        self.scrub_legacy_documents()
+
+    def scrub_legacy_documents(self) -> None:
+        """Remove on-disk documents from older Orkie versions; do not parse them."""
+        for name in _LEGACY_DOCUMENTS:
+            path = self._state_root / name
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+            tmp = self._state_root / f"{name}.tmp"
+            try:
+                tmp.unlink()
+            except FileNotFoundError:
+                pass
 
     def load_snapshot(self) -> Snapshot | None:
-        path = self._state_root / "snapshot"
-        if not path.exists():
-            return None
-        data = self._load_json(path, label="snapshot")
-        return _parse_snapshot(data)
+        with self._doc_lock:
+            return self._snapshot
 
     def save_snapshot(self, snapshot: Snapshot) -> None:
-        payload = {
-            "fetched_at": snapshot.fetched_at,
-            "issues": [
-                {
-                    "number": issue.number,
-                    "title": issue.title,
-                    "body": issue.body,
-                    "url": issue.url,
-                    "state": issue.state,
-                    "labels": list(issue.labels),
-                }
-                for issue in snapshot.issues
-            ],
-        }
-        self._atomic_write("snapshot", payload)
+        with self._doc_lock:
+            self._snapshot = snapshot
 
     def load_claims(self) -> list[ClaimRecord]:
-        path = self._state_root / "claims"
-        if not path.exists():
-            return []
-        data = self._load_json(path, label="claims")
-        return _parse_claims(data)
+        with self._doc_lock:
+            return list(self._claims)
 
     def save_claims(self, claims: list[ClaimRecord]) -> None:
-        payload = {
-            "claims": [
-                {
-                    "agent_id": claim.agent_id,
-                    "issue_number": claim.issue_number,
-                    "claimed_at": claim.claimed_at,
-                }
-                for claim in claims
-            ]
-        }
-        self._atomic_write("claims", payload)
-
-    def load_sessions(self) -> list[SessionRecord]:
-        path = self._state_root / "sessions"
-        if not path.exists():
-            return []
-        data = self._load_json(path, label="sessions")
-        return _parse_sessions(data)
-
-    def save_sessions(self, sessions: list[SessionRecord]) -> None:
-        payload = {
-            "sessions": [
-                {
-                    "session_id": session.session_id,
-                    "agent_id": session.agent_id,
-                    "issue_number": session.issue_number,
-                    "pr_number": session.pr_number,
-                    "working": session.working,
-                    "worktree_path": session.worktree_path,
-                    "started_at": session.started_at,
-                }
-                for session in sessions
-            ]
-        }
-        self._atomic_write("sessions", payload)
-
-    def delete_sessions(self) -> None:
-        path = self._state_root / "sessions"
-        try:
-            path.unlink()
-        except FileNotFoundError:
-            pass
+        with self._doc_lock:
+            self._claims = list(claims)
 
     def load_spawn_failures(self) -> list[SpawnFailureRecord]:
-        path = self._state_root / "spawn_failures"
-        if not path.exists():
-            return []
-        data = self._load_json(path, label="spawn_failures")
-        return _parse_spawn_failures(data)
+        with self._doc_lock:
+            return list(self._spawn_failures)
 
     def save_spawn_failures(self, failures: list[SpawnFailureRecord]) -> None:
-        payload = {
-            "failures": [
-                {
-                    "agent_id": failure.agent_id,
-                    "agent_name": failure.agent_name,
-                    "issue_number": failure.issue_number,
-                    "pr_number": failure.pr_number,
-                    "attempt": failure.attempt,
-                    "released": failure.released,
-                    "error": failure.error,
-                    "at": failure.at,
-                }
-                for failure in failures
-            ]
-        }
-        self._atomic_write("spawn_failures", payload)
+        with self._doc_lock:
+            self._spawn_failures = list(failures)
 
     def append_log(
         self,
@@ -279,26 +235,6 @@ class StateStore:
                 self._log_locks[agent_id] = lock
             return lock
 
-    def _load_json(self, path: Path, *, label: str) -> dict[str, Any]:
-        try:
-            raw = path.read_text(encoding="utf-8")
-            data = json.loads(raw)
-        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
-            raise StateError(f"corrupt {label} file: {path}") from exc
-        if not isinstance(data, dict):
-            raise StateError(f"corrupt {label} file: {path}")
-        return data
-
-    def _atomic_write(self, name: str, payload: dict[str, Any]) -> None:
-        target = self._state_root / name
-        tmp = self._state_root / f"{name}.tmp"
-        text = json.dumps(payload, indent=2) + "\n"
-        with tmp.open("w", encoding="utf-8") as handle:
-            handle.write(text)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(tmp, target)
-
 
 def _pid_alive(pid: int) -> bool:
     try:
@@ -308,142 +244,3 @@ def _pid_alive(pid: int) -> bool:
     except PermissionError:
         return True
     return True
-
-
-def _require_key(data: dict[str, Any], key: str, *, label: str) -> object:
-    if key not in data:
-        raise StateError(f"corrupt {label}: missing {key}")
-    return data[key]
-
-
-def _parse_snapshot(data: dict[str, Any]) -> Snapshot:
-    fetched_at = _require_key(data, "fetched_at", label="snapshot")
-    issues_raw = _require_key(data, "issues", label="snapshot")
-    if not isinstance(fetched_at, str) or not isinstance(issues_raw, list):
-        raise StateError("corrupt snapshot file")
-    for key in data:
-        if key not in {"fetched_at", "issues"}:
-            raise StateError(f"corrupt snapshot: unknown key {key}")
-    issues: list[SnapshotIssue] = []
-    for item in issues_raw:
-        if not isinstance(item, dict):
-            raise StateError("corrupt snapshot file")
-        issues.append(
-            SnapshotIssue(
-                number=_as_int(item, "number", label="snapshot"),
-                title=_as_str(item, "title", label="snapshot"),
-                body=_as_str(item, "body", label="snapshot"),
-                url=_as_str(item, "url", label="snapshot"),
-                state=_as_str(item, "state", label="snapshot"),
-                labels=_as_str_list(item, "labels", label="snapshot"),
-            )
-        )
-    return Snapshot(fetched_at=fetched_at, issues=issues)
-
-
-def _parse_claims(data: dict[str, Any]) -> list[ClaimRecord]:
-    claims_raw = _require_key(data, "claims", label="claims")
-    if not isinstance(claims_raw, list):
-        raise StateError("corrupt claims file")
-    for key in data:
-        if key != "claims":
-            raise StateError(f"corrupt claims: unknown key {key}")
-    claims: list[ClaimRecord] = []
-    for item in claims_raw:
-        if not isinstance(item, dict):
-            raise StateError("corrupt claims file")
-        claims.append(
-            ClaimRecord(
-                agent_id=_as_str(item, "agent_id", label="claims"),
-                issue_number=_as_int(item, "issue_number", label="claims"),
-                claimed_at=_as_str(item, "claimed_at", label="claims"),
-            )
-        )
-    return claims
-
-
-def _parse_sessions(data: dict[str, Any]) -> list[SessionRecord]:
-    sessions_raw = _require_key(data, "sessions", label="sessions")
-    if not isinstance(sessions_raw, list):
-        raise StateError("corrupt sessions file")
-    sessions: list[SessionRecord] = []
-    for item in sessions_raw:
-        if not isinstance(item, dict):
-            raise StateError("corrupt sessions file")
-        sessions.append(
-            SessionRecord(
-                session_id=_as_str(item, "session_id", label="sessions"),
-                agent_id=_as_str(item, "agent_id", label="sessions"),
-                issue_number=_as_optional_int(item, "issue_number", label="sessions"),
-                pr_number=_as_optional_int(item, "pr_number", label="sessions"),
-                working=_as_bool(item, "working", label="sessions"),
-                worktree_path=_as_str(item, "worktree_path", label="sessions"),
-                started_at=_as_str(item, "started_at", label="sessions"),
-            )
-        )
-    return sessions
-
-
-def _parse_spawn_failures(data: dict[str, Any]) -> list[SpawnFailureRecord]:
-    failures_raw = _require_key(data, "failures", label="spawn_failures")
-    if not isinstance(failures_raw, list):
-        raise StateError("corrupt spawn_failures file")
-    for key in data:
-        if key != "failures":
-            raise StateError(f"corrupt spawn_failures: unknown key {key}")
-    failures: list[SpawnFailureRecord] = []
-    for item in failures_raw:
-        if not isinstance(item, dict):
-            raise StateError("corrupt spawn_failures file")
-        failures.append(
-            SpawnFailureRecord(
-                agent_id=_as_str(item, "agent_id", label="spawn_failures"),
-                agent_name=_as_str(item, "agent_name", label="spawn_failures"),
-                issue_number=_as_optional_int(item, "issue_number", label="spawn_failures"),
-                pr_number=_as_optional_int(item, "pr_number", label="spawn_failures"),
-                attempt=_as_int(item, "attempt", label="spawn_failures"),
-                released=_as_bool(item, "released", label="spawn_failures"),
-                error=_as_str(item, "error", label="spawn_failures"),
-                at=_as_str(item, "at", label="spawn_failures"),
-            )
-        )
-    return failures
-
-
-def _as_str(obj: dict[str, Any], key: str, *, label: str) -> str:
-    value = _require_key(obj, key, label=label)
-    if not isinstance(value, str):
-        raise StateError(f"corrupt {label}: {key} must be a string")
-    return value
-
-
-def _as_int(obj: dict[str, Any], key: str, *, label: str) -> int:
-    value = _require_key(obj, key, label=label)
-    if type(value) is not int:
-        raise StateError(f"corrupt {label}: {key} must be an integer")
-    return value
-
-
-def _as_optional_int(obj: dict[str, Any], key: str, *, label: str) -> int | None:
-    if key not in obj:
-        raise StateError(f"corrupt {label}: missing {key}")
-    value = obj[key]
-    if value is None:
-        return None
-    if type(value) is not int:
-        raise StateError(f"corrupt {label}: {key} must be an integer or null")
-    return value
-
-
-def _as_bool(obj: dict[str, Any], key: str, *, label: str) -> bool:
-    value = _require_key(obj, key, label=label)
-    if not isinstance(value, bool):
-        raise StateError(f"corrupt {label}: {key} must be a boolean")
-    return value
-
-
-def _as_str_list(obj: dict[str, Any], key: str, *, label: str) -> list[str]:
-    value = _require_key(obj, key, label=label)
-    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        raise StateError(f"corrupt {label}: {key} must be a list of strings")
-    return list(value)

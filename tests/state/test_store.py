@@ -4,14 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from orkie.state import (
     ClaimRecord,
     Snapshot,
     SnapshotIssue,
     SpawnFailureRecord,
-    StateError,
     StateStore,
     default_state_root,
 )
@@ -22,12 +19,13 @@ def test_default_state_root_uses_local_share(tmp_path: Path) -> None:
     assert root == tmp_path / ".local" / "share" / "orkie" / "acme--demo"
 
 
-def test_claims_round_trip(tmp_path: Path) -> None:
+def test_claims_round_trip_in_memory(tmp_path: Path) -> None:
     store = StateStore(tmp_path)
     store.ensure_layout()
     claims = [ClaimRecord(agent_id="worker", issue_number=1, claimed_at="2026-01-01T00:00:00Z")]
     store.save_claims(claims)
     assert store.load_claims() == claims
+    assert not (tmp_path / "claims").exists()
 
 
 def test_missing_claims_is_empty(tmp_path: Path) -> None:
@@ -36,15 +34,15 @@ def test_missing_claims_is_empty(tmp_path: Path) -> None:
     assert store.load_claims() == []
 
 
-def test_corrupt_claims_raises(tmp_path: Path) -> None:
+def test_legacy_claims_file_is_scrubbed_not_loaded(tmp_path: Path) -> None:
     store = StateStore(tmp_path)
+    (tmp_path / "claims").write_text('{"claims":[{"agent_id":"x","issue_number":1,"claimed_at":"t"}]}', encoding="utf-8")
     store.ensure_layout()
-    (tmp_path / "claims").write_text("{not json", encoding="utf-8")
-    with pytest.raises(StateError, match="claims"):
-        store.load_claims()
+    assert not (tmp_path / "claims").exists()
+    assert store.load_claims() == []
 
 
-def test_snapshot_and_failures(tmp_path: Path) -> None:
+def test_snapshot_and_failures_in_memory(tmp_path: Path) -> None:
     store = StateStore(tmp_path)
     store.ensure_layout()
     snap = Snapshot(
@@ -62,6 +60,7 @@ def test_snapshot_and_failures(tmp_path: Path) -> None:
     )
     store.save_snapshot(snap)
     assert store.load_snapshot() == snap
+    assert not (tmp_path / "snapshot").exists()
     failures = [
         SpawnFailureRecord(
             agent_id="worker",
@@ -76,14 +75,7 @@ def test_snapshot_and_failures(tmp_path: Path) -> None:
     ]
     store.save_spawn_failures(failures)
     assert store.load_spawn_failures() == failures
-
-
-def test_delete_sessions_without_parsing(tmp_path: Path) -> None:
-    store = StateStore(tmp_path)
-    store.ensure_layout()
-    (tmp_path / "sessions").write_text("not-json", encoding="utf-8")
-    store.delete_sessions()
-    assert not (tmp_path / "sessions").exists()
+    assert not (tmp_path / "spawn_failures").exists()
 
 
 def test_append_log_redacts_token(tmp_path: Path) -> None:
@@ -109,8 +101,21 @@ def test_set_github_token_refreshes_redaction(tmp_path: Path) -> None:
     assert "***" in text
 
 
-def test_acquire_lock_and_release(tmp_path: Path) -> None:
+def test_acquire_lock_and_release_unlinks(tmp_path: Path) -> None:
     store = StateStore(tmp_path)
     store.acquire_lock()
-    store.release_lock()
     assert (tmp_path / "lock").exists()
+    store.release_lock()
+    assert not (tmp_path / "lock").exists()
+
+
+def test_stale_lock_pid_allows_acquire(tmp_path: Path) -> None:
+    store = StateStore(tmp_path)
+    store.ensure_layout()
+    # Unlikely to be a live pid on the test host.
+    (tmp_path / "lock").write_text(
+        '{"pid": 2147483646, "started_at": "2026-01-01T00:00:00Z"}', encoding="utf-8"
+    )
+    store.acquire_lock()
+    store.release_lock()
+    assert not (tmp_path / "lock").exists()

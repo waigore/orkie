@@ -11,7 +11,7 @@ The dashboard has two simple views:
 
 It can interrupt or kill a session. Killing an issue session ends it by the ACP delete path and drops its local claim so the next poll does not respawn that issue from the old claim. Interrupt cancels the current turn and leaves the claim in place. v1 has no follow-up prompt box. Spawn failures (including three-strike claim drops) are visible in both views as appropriate.
 
-The process can be stopped from a terminal with Ctrl-C (SIGINT), or by a supervisor with SIGTERM. There are two shutdown modes. Both delete live ACP sessions, delete session records, attempt worktree removal, keep local claims, and exit 0. A worktree that cannot be removed is logged and does not change the exit code.
+The process can be stopped from a terminal with Ctrl-C (SIGINT), or by a supervisor with SIGTERM. There are two shutdown modes. Both delete live ACP sessions, attempt worktree removal, remove the process lock file, leave agent logs, and exit 0. Process-local claims end with the process. A worktree that cannot be removed is logged and does not change the exit code.
 
 - **Normal shutdown** deletes each live session now: `session/delete` when the agent advertised it, then SIGKILL if that process has not exited within 5 seconds (see [04-acp-agent-runtime.md](04-acp-agent-runtime.md#session-end)).
 - **Graceful shutdown** cancels each live session, sends the fixed wrap-up prompt, waits 20 seconds, then runs the same delete path.
@@ -142,11 +142,11 @@ An explicit `g` starts graceful shutdown. An explicit `n` starts normal shutdown
 **When** the supervisor sends SIGTERM  
 **Then** Orkie starts normal shutdown and does not prompt. Non-interactive SIGINT does the same
 
-### Both shutdown modes keep claims and exit 0
+### Both shutdown modes exit 0 and remove the lock
 
-**Given** Orkie has live sessions and saved claims  
+**Given** Orkie has live sessions  
 **When** either shutdown mode finishes  
-**Then** it has stopped new intake cycles and new spawns, ended ACP sessions by that mode, deleted session records, attempted worktree removal, and left `claims`, `snapshot`, `spawn_failures`, and agent logs on disk. The process exits 0. A worktree removal failure is logged and does not change the exit code. A second SIGINT or SIGTERM during the graceful 20 second wait SIGKILLs remaining agent process groups
+**Then** it has stopped new intake cycles and new spawns, ended ACP sessions by that mode, attempted worktree removal, removed the `lock` file, and left agent logs on disk. Process-local claims, snapshot, and spawn failures are gone with the process. The process exits 0. A worktree removal failure is logged and does not change the exit code. A second SIGINT or SIGTERM during the graceful 20 second wait SIGKILLs remaining agent process groups
 
 ### Refuse a second live process
 
@@ -193,5 +193,5 @@ WantedBy=default.target
 - [ ] A second live process for the same GitHub repository refuses to start. A lock whose holder pid is not running does not block startup.
 - [ ] SIGTERM and non-interactive SIGINT are normal shutdown. Interactive Ctrl-C with a live agent prompts for graceful or normal and requires an explicit `g` or `n`. Interactive Ctrl-C with no live agent is normal shutdown.
 - [ ] Normal shutdown deletes sessions immediately (5 second process-exit window, then SIGKILL). Graceful shutdown cancels, sends the fixed wrap-up prompt, waits 20 seconds, then uses that delete path. A second SIGINT or SIGTERM during the prompt or the 20 second wait SIGKILLs remaining agent process groups.
-- [ ] Both modes keep local claims, delete session records, and exit 0. Worktree removal failure is logged and does not change the exit code.
+- [ ] Both modes remove the lock file, leave agent logs, and exit 0. Process-local claims are not kept for the next start. Worktree removal failure is logged and does not change the exit code.
 - [ ] The feature spec documents a systemd unit. The repository does not ship a `.service` file. Under that unit, stop is normal shutdown.

@@ -2,9 +2,10 @@
 
 ## Status
 
-Accepted
+Superseded by [011-3-cli-signals-and-process-lifecycle](../011-3-cli-signals-and-process-lifecycle.md).
 
-Supersedes [011-1](superseded/011-1-cli-signals-and-process-lifecycle.md).
+Was Accepted.
+
 
 ## Context
 

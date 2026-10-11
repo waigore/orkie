@@ -222,7 +222,7 @@ Absent data uses `None` or an empty list, and only where the design already uses
 ### Parsing
 
 - YAML enters through `yaml.safe_load` and goes straight into the config validator. JSON state enters through `json.loads` and goes straight into that document's loader.
-- Config rejects unknown fields ([config.md](config.md)). State loaders reject an unknown key, a missing required key, or a wrong JSON type as a corrupt file, and bootstrap names that file ([data.md](data.md)).
+- Config rejects unknown fields ([config.md](config.md)). Process-local claims/snapshot/spawn failures are held in memory ([data.md](data.md)); lock JSON corrupt once flock is held is overwritten in place.
 - GitHub response objects and inbound ACP objects are open. Parsers read the keys Orkie uses, check those types, and ignore every other key.
 - Each loader returns the dataclass or raises. Callers do not re-check the raw dict.
 - Writers build a dict with explicit keys, then `json.dumps`. The scaffold writer writes the feature-01 document bytes. It does not dump the `Config` object.

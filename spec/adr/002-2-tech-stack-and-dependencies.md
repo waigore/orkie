@@ -82,7 +82,7 @@ Hand-built HTML strings in `orkie.dashboard` do not scale for maintainable marku
 | httpx / requests / aiohttp | urllib covers GitHub REST for Orkie's call volume |
 | PyGithub / ghapi / PyGitHub | Avoid leaking SDK types into core; thin REST wrapper in `orkie.connectors.github` |
 | pydantic / attrs / marshmallow for config | Hand validation against the feature-01 schema keeps one less model layer |
-| SQLAlchemy / SQLite as primary state | See [004-2](004-2-local-state-format-and-process-lock.md) |
+| SQLAlchemy / SQLite as primary state | See [004-3](004-3-local-state-format-and-process-lock.md) |
 | Redis / external message bus | Single process owns orchestration |
 | React / Vue / SPA dashboard | Full page reload meets monitoring needs; no client app |
 | Proprietary OpenCode/Grok Python SDKs | ACP stdio only |

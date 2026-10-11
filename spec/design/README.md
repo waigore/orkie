@@ -67,15 +67,15 @@ Companion product docs: [vocabulary](../feature/vocabulary.md), [users](../featu
 |-----|--------------|
 | [001 Process and modules](../adr/001-2-process-model-and-module-layout.md) | components, conventions, README |
 | [002 Tech stack](../adr/002-2-tech-stack-and-dependencies.md) | components, config, ui, conventions |
-| [003 Bootstrap](../adr/003-3-config-load-and-bootstrap-sequence.md) | sequences, components (`cli`, `config`), config |
-| [004 Local state](../adr/004-2-local-state-format-and-process-lock.md) | data, components (`state`) |
+| [003 Bootstrap](../adr/003-4-config-load-and-bootstrap-sequence.md) | sequences, components (`cli`, `config`), config |
+| [004 Local state](../adr/004-3-local-state-format-and-process-lock.md) | data, components (`state`) |
 | [005 Connector](../adr/005-2-connector-interface-and-github-client.md) | components (`connectors`) |
 | [006 ACP](../adr/006-2-acp-agent-runtime.md) | components (`acp`), sequences |
-| [007 Orchestration cycle](../adr/007-2-orchestration-cycle-and-claim-session-state-machine.md) | sequences, components (`orchestration`) |
+| [007 Orchestration cycle](../adr/007-3-orchestration-cycle-and-claim-session-state-machine.md) | sequences, components (`orchestration`) |
 | [008 Worktrees](../adr/008-1-git-worktrees.md) | components (`worktree`), data |
-| [009 Intake](../adr/009-2-intake-poll-and-delta.md) | components (`intake`), sequences, data |
+| [009 Intake](../adr/009-3-intake-poll-and-delta.md) | components (`intake`), sequences, data |
 | [010 Babysitter](../adr/010-2-pr-babysitter-lifecycle.md) | sequences, components (`orchestration`) |
-| [011 CLI / signals](../adr/011-2-cli-signals-and-process-lifecycle.md) | ui, sequences, components (`cli`) |
+| [011 CLI / signals](../adr/011-3-cli-signals-and-process-lifecycle.md) | ui, sequences, components (`cli`) |
 | [012 Dashboard](../adr/012-3-dashboard-stack-and-control-api.md) | ui, components (`dashboard`) |
 
 ## Locked design choices (beyond ADRs)

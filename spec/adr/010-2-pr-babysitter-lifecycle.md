@@ -8,13 +8,13 @@ Supersedes [010-1](superseded/010-1-pr-babysitter-lifecycle.md).
 
 ## Context
 
-Feature [07](../feature/07-pr-babysitter.md) defines an optional single babysitter session bound to one selectable blocked PR. It does not take a local issue claim and does not consume issue session caps, and Orkie must not merge PRs. Orchestration ([007-2](007-2-orchestration-cycle-and-claim-session-state-machine.md)) needs a clear step after issue work.
+Feature [07](../feature/07-pr-babysitter.md) defines an optional single babysitter session bound to one selectable blocked PR. It does not take a local issue claim and does not consume issue session caps, and Orkie must not merge PRs. Orchestration ([007-3](007-3-orchestration-cycle-and-claim-session-state-machine.md)) needs a clear step after issue work.
 
 ## Decision
 
 ### Gating
 
-- When `babysitter.enabled` is false: no PR list fetch for orchestration; no babysitter spawn; the “read PRs” privilege is not required ([003-3](003-3-config-load-and-bootstrap-sequence.md), [005-2](005-2-connector-interface-and-github-client.md)).
+- When `babysitter.enabled` is false: no PR list fetch for orchestration; no babysitter spawn; the “read PRs” privilege is not required ([003-4](003-4-config-load-and-bootstrap-sequence.md), [005-2](005-2-connector-interface-and-github-client.md)).
 - When true: one config identity; at most one working babysitter session.
 
 ### Selection (each cycle, if no babysitter session is working)
@@ -29,12 +29,12 @@ From `connector.list_open_pull_requests()`:
 
 Skip a PR that has three consecutive spawn failures. Those failures clear on a poll where that PR is not selectable, and on a successful spawn. Pick the selectable blocked PR with the **lowest PR number** among the rest. Idle (no spawn) when none remain.
 
-A failed PR fetch skips this step only. It does not change claims or issue sessions. This step still runs when the issue fetch failed, as long as the PR fetch succeeded ([007-2](007-2-orchestration-cycle-and-claim-session-state-machine.md)).
+A failed PR fetch skips this step only. It does not change claims or issue sessions. This step still runs when the issue fetch failed, as long as the PR fetch succeeded ([007-3](007-3-orchestration-cycle-and-claim-session-state-machine.md)).
 
 ### Spawn
 
 - New `session_id` minted by orchestration; bind `pr_number` only. No local issue claim.
-- Substitute every feature-01 token. Issue tokens are empty ([003-3](003-3-config-load-and-bootstrap-sequence.md)).
+- Substitute every feature-01 token. Issue tokens are empty ([003-4](003-4-config-load-and-bootstrap-sequence.md)).
 - Dedicated worktree ([008-1](008-1-git-worktrees.md)); implicit permission grants ([006-1](006-2-acp-agent-runtime.md)).
 - Does not consume issue session caps.
 
@@ -43,7 +43,7 @@ A failed PR fetch skips this step only. It does not change claims or issue sessi
 - Orkie does **not** stop a working babysitter because the PR changed state. That includes mergeable state becoming `clean`, checks changing, the PR closing, or the PR merging.
 - Agent exit, dashboard kill, or process shutdown end the session. Dashboard kill deletes only that session.
 - After it is not working: if a selectable blocked PR still exists, a later cycle may spawn a **new** session (new id) for the PR selected that cycle. Prior context is not reused.
-- Process shutdown ends the babysitter by the same mode as other sessions ([011-2](011-2-cli-signals-and-process-lifecycle.md)).
+- Process shutdown ends the babysitter by the same mode as other sessions ([011-3](011-3-cli-signals-and-process-lifecycle.md)).
 
 ### What Orkie does not do
 

@@ -12,9 +12,9 @@ Orkie is a long-running orchestrator (features [05](../feature/05-agent-orchestr
 
 ## Decision
 
-1. **One process per repository.** A single OS process owns the lock, intake, orchestration, dashboard, and ACP children for one resolved `owner/name`. A second live process refuses to start ([004-2](004-2-local-state-format-and-process-lock.md), [011-2](011-2-cli-signals-and-process-lifecycle.md)).
+1. **One process per repository.** A single OS process owns the lock, intake, orchestration, dashboard, and ACP children for one resolved `owner/name`. A second live process refuses to start ([004-3](004-3-local-state-format-and-process-lock.md), [011-3](011-3-cli-signals-and-process-lifecycle.md)).
 
-2. **Sync core, threads at the edges.** Orchestration and connector calls are synchronous on the **main loop thread** — the process main thread, which runs the poll cycle. Keeping the loop on the main thread lets Python signal handlers (delivered to the main thread) set the shutdown event directly ([011-2](011-2-cli-signals-and-process-lifecycle.md)). The dashboard runs on a **background thread** (`threading`). Each ACP session uses a subprocess; a reader thread drains that child's stdout and stderr into the ACP client and agent logs. v1 does **not** use `asyncio` as the primary concurrency model.
+2. **Sync core, threads at the edges.** Orchestration and connector calls are synchronous on the **main loop thread** — the process main thread, which runs the poll cycle. Keeping the loop on the main thread lets Python signal handlers (delivered to the main thread) set the shutdown event directly ([011-3](011-3-cli-signals-and-process-lifecycle.md)). The dashboard runs on a **background thread** (`threading`). Each ACP session uses a subprocess; a reader thread drains that child's stdout and stderr into the ACP client and agent logs. v1 does **not** use `asyncio` as the primary concurrency model.
 
 3. **One lock between the dashboard and the cycle.** The main thread holds it for a whole poll cycle. A dashboard control takes it for one interrupt or kill. The dashboard calls `orkie.orchestration` only. Orchestration calls `orkie.acp`.
 
@@ -25,7 +25,7 @@ Orkie is a long-running orchestrator (features [05](../feature/05-agent-orchestr
 | `orkie` | Package root; version |
 | `orkie.__main__` / `orkie.cli` | Entrypoint `orkie`; argparse; project path; `--port`; shutdown prompt |
 | `orkie.config` | Load and validate `.orkie/config.yaml`; default scaffold; prompt substitution |
-| `orkie.state` | Local state root, lock, claims/snapshot/sessions/spawn_failures/logs I/O |
+| `orkie.state` | Local state root, lock, logs I/O; in-memory claims/snapshot/spawn_failures |
 | `orkie.connectors` | Abstract connector protocol; `github` implementation. Reads only |
 | `orkie.acp` | ACP JSON-RPC client over stdio; spawn/prompt/interrupt/delete |
 | `orkie.intake` | Poll timer; fetch via connector; delta vs snapshot |
@@ -43,7 +43,7 @@ Orkie is a long-running orchestrator (features [05](../feature/05-agent-orchestr
 - Sync orchestration keeps claim-then-spawn and cap ordering easy to reason about and test with fakes.
 - Threads are enough for a loopback UI and stdio drains without forcing every connector call into async.
 - One lock is enough for a dashboard thread to enter the sync cycle. A queue would be a second concurrency mechanism.
-- Explicit modules (orchestration, connectors, config, and the rest of the table above) map to ADRs 003–012.
+- Explicit modules (orchestration, connectors, config, and the rest of the table above) map to ADRs 003–013.
 
 ## Rejected alternatives
 
@@ -58,6 +58,6 @@ Orkie is a long-running orchestrator (features [05](../feature/05-agent-orchestr
 
 ## Consequences for design
 
-- Entrypoint sequence: parse CLI → resolve project root → bootstrap ([003-3](003-3-config-load-and-bootstrap-sequence.md)) → start dashboard thread → run poll loop until shutdown ([011-2](011-2-cli-signals-and-process-lifecycle.md)).
-- Shared in-memory handles: loaded config, connector instance, state store, session table (live ACP handles), shutdown event, immediate-kill flag, the cycle lock, and the resolved start checkout.
+- Entrypoint sequence: parse CLI → resolve project root → bootstrap ([003-4](003-4-config-load-and-bootstrap-sequence.md)) → start dashboard thread → run poll loop until shutdown ([011-3](011-3-cli-signals-and-process-lifecycle.md)).
+- Shared in-memory handles: loaded config, connector instance, state store (including process-local claims/snapshot/spawn failures), session table (live ACP handles), shutdown event, immediate-kill flag, the cycle lock, and the resolved start checkout.
 - Tests inject fakes at `connectors` and `acp` boundaries; default offline suite needs no network.

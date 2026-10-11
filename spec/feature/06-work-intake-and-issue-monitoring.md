@@ -4,7 +4,7 @@
 
 Orkie continuously monitors the project's intake issues through the connector, on `poll_interval_seconds` (default 60). An **intake issue** is an open GitHub issue that is not a pull request and that has at least one label in the configured `issue_labels`. Pull requests are left to the babysitter, including pull requests that happen to carry an issue label.
 
-Each successful cycle compares the remote intake set to the locally stored snapshot, computes a delta, and feeds that delta and the current intake set to orchestration. The delta says which issues entered intake, which left, and which label changes matter for triggers. Orchestration uses the current intake set together with local claims (see [05-agent-orchestration.md](05-agent-orchestration.md)): a claim whose issue is no longer in that set is dropped. For repositories with very large closed-issue histories, intake does not download that history.
+Each successful cycle compares the remote intake set to the in-memory snapshot from this process, computes a delta, and feeds that delta and the current intake set to orchestration. The delta says which issues entered intake, which left, and which label changes matter for triggers. Orchestration uses the current intake set together with local claims (see [05-agent-orchestration.md](05-agent-orchestration.md)): a claim whose issue is no longer in that set is dropped. After a process start the snapshot is empty until the first successful fetch (a full remote sweep). For repositories with very large closed-issue histories, intake does not download that history.
 
 ## Use cases
 
@@ -28,9 +28,9 @@ Actors are defined in [users.md](users.md).
 **When** intake builds the eligible set  
 **Then** an open non-PR issue is eligible when it has at least one of those labels. An issue with several of them is still one intake issue. Issues with none of them are ignored. Pull requests are ignored
 
-### Compare remote state to local known state
+### Compare remote state to the in-memory snapshot
 
-**Given** local state holds a previous intake snapshot  
+**Given** this process holds a previous intake snapshot in memory  
 **When** a new fetch completes  
 **Then** Orkie derives a delta of issues entering the eligible set, issues leaving it, and label changes, for orchestration. An issue in `left` is no longer intake
 
@@ -46,11 +46,11 @@ Actors are defined in [users.md](users.md).
 **When** intake runs a normal poll cycle  
 **Then** Orkie does not download the closed-issue corpus. It obtains the open issue set and derives the intake subset locally
 
-### First run uses the same spawn rules
+### First successful fetch after start uses the same spawn rules
 
-**Given** local state has no prior issue snapshot for this project on this user and machine  
+**Given** this process has no prior intake snapshot (including every process start)  
 **When** the first successful intake cycle completes  
-**Then** Orkie stores the baseline snapshot and applies saved-claim fulfillment and new-match spawn rules on that cycle. It does not wait for a second cycle to invent a baseline
+**Then** Orkie stores the in-memory baseline snapshot and applies claim fulfillment and new-match spawn rules on that cycle. It does not wait for a second cycle to invent a baseline. It does not reload a snapshot from disk
 
 ### Closed or no-longer-matching issues update the plan
 
@@ -62,7 +62,7 @@ Actors are defined in [users.md](users.md).
 
 **Given** a poll cycle fails because of a network error, auth error, rate limit, incomplete page set, or other connector outage  
 **When** intake cannot refresh remote data  
-**Then** Orkie preserves the last good snapshot, changes no local claims because of the fetch, surfaces the error to logs and the dashboard, and retries on a later cycle. ACP exits on that cycle are still observed
+**Then** Orkie preserves the last good in-memory snapshot, changes no local claims because of the fetch, surfaces the error to logs and the dashboard, and retries on a later cycle. ACP exits on that cycle are still observed
 
 ## Acceptance criteria
 

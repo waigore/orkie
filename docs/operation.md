@@ -60,17 +60,17 @@ Both modes delete live ACP sessions and session records, attempt worktree remova
 - No live agents, or SIGTERM / non-interactive SIGINT → normal, no prompt
 - Second SIGINT/SIGTERM during shutdown → SIGKILL remaining agent process groups
 
-Sessions are not resumed after restart. Claims survive; orchestration may spawn again for claimed issues.
+Sessions are not resumed after restart. Claims are process-local; the next start begins with an empty claim set and re-sweeps intake.
 
 ## Local state
 
-Runtime state is **outside** the project clone:
+Runtime directory is **outside** the project clone:
 
 ```text
 ~/.local/share/orkie/<owner>--<repo>/
 ```
 
-Includes process lock, intake snapshot, local claims, spawn-failure records, and per-agent logs. Two clones of the same GitHub repo on one machine share this tree. A different OS user or machine gets a separate tree (empty claims).
+On disk: process lock (only while running; removed on clean shutdown), per-agent logs, and session worktrees. Claims, intake snapshot, and spawn failures are in memory for the current process only. Two clones of the same GitHub repo on one machine share this tree. A different OS user or machine gets a separate tree.
 
 Layout detail: [feature 02](../spec/feature/02-local-state.md).
 
